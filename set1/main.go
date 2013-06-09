@@ -284,7 +284,6 @@ func challenge06() {
 	fmt.Println("Challenge 06")
 
 	resource := "./resources/gistfile2.txt"
-	// resource := "./resources/test_encoded.txt"
 
 	// get byte-array holding decoded data from file
 	decodedBytes := decodeFile(resource)
@@ -292,48 +291,39 @@ func challenge06() {
 	// get top key sizes, along with their h-distance
 	distanceMap := scanKeySizes(decodedBytes, 2, 40, 20)
 
-	fmt.Println("topKeySizes: ", distanceMap)
+	// set a really high threshold - this is an arbritrary value
+	keySize := 10000
+	var topScore float32 = 100000.0000
+	for k, v := range distanceMap {
+		if v < topScore {
+			topScore = v
+			keySize = k
+		}
+	}
 
-	// store decrypted data in a map for now as KEYSIZE: $DATA
-	// FIX: should be written to disk
-	// result := map[int]string{}
+	fmt.Println("Top Key Size: ", keySize)
 
-	// FIX: brute-forced key search
-	// ANSWER: keysize=29
+	// slice out all bytes from a particular key position
+	transposedBlocks := createTransposeBlocks(decodedBytes, keySize)
 
-	// for keySize, score := range distanceMap {
-	// 	// for keySize := 2; keySize <= 40; keySize++ {
-	// 	fmt.Println("Key Size: ", keySize)
-	// 	fmt.Println("Score: ", score)
+	// iterate over t-blocks and look for XOR keys
+	key := scanKeys(transposedBlocks)
 
-	// 	// chop up bytes into KEYSIZE blocks in a 2D array
-	// 	// NOTE: might not be needed
-	// 	// blocks := createBlocks(decodedBytes, keySize)
-	// 	// fmt.Println("blocks: ", blocks)
+	srcString := hex.EncodeToString(decodedBytes)
 
-	// 	// slice out all bytes from a particular key position
-	// 	transposedBlocks := createTransposeBlocks(decodedBytes, keySize)
+	//---------------------------USING SCANNED KEY TO DECRYPT----------------------
 
-	// 	// iterate over t-blocks and look for XOR keys
-	// 	key := scanKeys(transposedBlocks)
-	// 	fmt.Println("scanned key: ", key)
+	fmt.Println("--------USING SCANNED KEY-------")
+	hexKeyBytes := hex.EncodeToString(key)
+	xorString, err := xorByKey(srcString, hexKeyBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	// 	srcString := hex.EncodeToString(decodedBytes)
+	xorBytes, _ := hex.DecodeString(xorString)
+	xorResult := string(xorBytes)
 
-	// 	//---------------------------USING SCANNED KEY TO DECRYPT----------------------
-
-	// 	fmt.Println("--------USING SCANNED KEY-------")
-	// 	hexKeyBytes := hex.EncodeToString(key)
-	// 	xorString, err := xorByKey(srcString, hexKeyBytes)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-
-	// 	xorBytes, _ := hex.DecodeString(xorString)
-	// 	xorResult := string(xorBytes)
-
-	// 	result[keySize] = xorResult
-	// }
+	fmt.Println(xorResult)
 }
 
 ////////////// -----------------------------------------------------
