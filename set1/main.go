@@ -20,8 +20,8 @@ func main() {
 	// challenge02()
 	// challenge03()
 	// challenge04()
-	challenge05()
-	// challenge06()
+	// challenge05()
+	challenge06()
 	// test()
 }
 
@@ -32,7 +32,7 @@ func test() {
 	decodedBytes := decodeFile(resource)
 
 	// get top key sizes, along with their h-distance
-	distanceMap := scanKeySizes(decodedBytes, 2, 40)
+	distanceMap := scanKeySizes(decodedBytes, 2, 40, 10)
 
 	fmt.Println("topKeySizes: ", distanceMap)
 
@@ -69,7 +69,10 @@ func test() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(xorString)
+
+	xorBytes, _ := hex.DecodeString(xorString)
+	xorResult := string(xorBytes)
+	fmt.Println(xorResult)
 
 	//---------------------------USING SCANNED KEY ----------------------
 
@@ -79,7 +82,9 @@ func test() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(xorString)
+	xorBytes, _ = hex.DecodeString(xorString)
+	xorResult = string(xorBytes)
+	fmt.Println(xorResult)
 }
 
 func challenge01() {
@@ -285,56 +290,50 @@ func challenge06() {
 	decodedBytes := decodeFile(resource)
 
 	// get top key sizes, along with their h-distance
-	distanceMap := scanKeySizes(decodedBytes, 2, 40)
+	distanceMap := scanKeySizes(decodedBytes, 2, 40, 20)
 
 	fmt.Println("topKeySizes: ", distanceMap)
 
 	// store decrypted data in a map for now as KEYSIZE: $DATA
 	// FIX: should be written to disk
-	result := map[int]string{}
+	// result := map[int]string{}
 
 	// FIX: brute-forced key search
 	// ANSWER: keysize=29
 
-	for keySize, score := range distanceMap {
-		// for keySize := 2; keySize <= 40; keySize++ {
-		fmt.Println("Key Size: ", keySize)
-		fmt.Println("Score: ", score)
+	// for keySize, score := range distanceMap {
+	// 	// for keySize := 2; keySize <= 40; keySize++ {
+	// 	fmt.Println("Key Size: ", keySize)
+	// 	fmt.Println("Score: ", score)
 
-		// chop up bytes into KEYSIZE blocks in a 2D array
-		// NOTE: might not be needed
-		// blocks := createBlocks(decodedBytes, keySize)
-		// fmt.Println("blocks: ", blocks)
+	// 	// chop up bytes into KEYSIZE blocks in a 2D array
+	// 	// NOTE: might not be needed
+	// 	// blocks := createBlocks(decodedBytes, keySize)
+	// 	// fmt.Println("blocks: ", blocks)
 
-		// slice out all bytes from a particular key position
-		transposedBlocks := createTransposeBlocks(decodedBytes, keySize)
-		// fmt.Println("t-blocks: ", transposedBlocks)
+	// 	// slice out all bytes from a particular key position
+	// 	transposedBlocks := createTransposeBlocks(decodedBytes, keySize)
 
-		// iterate over t-blocks and look for XOR keys
-		key := scanKeys(transposedBlocks)
-		fmt.Println("scanned key: ", key)
+	// 	// iterate over t-blocks and look for XOR keys
+	// 	key := scanKeys(transposedBlocks)
+	// 	fmt.Println("scanned key: ", key)
 
-		srcString := hex.EncodeToString(decodedBytes)
-		// fmt.Println(srcString)
+	// 	srcString := hex.EncodeToString(decodedBytes)
 
-		//---------------------------USING SCANNED KEY TO DECRYPT----------------------
+	// 	//---------------------------USING SCANNED KEY TO DECRYPT----------------------
 
-		fmt.Println("--------USING SCANNED KEY-------")
-		hexKeyBytes := hex.EncodeToString(key)
-		xorString, err := xorByKey(srcString, hexKeyBytes)
-		if err != nil {
-			log.Fatal(err)
-		}
-		// fmt.Println(xorString)
+	// 	fmt.Println("--------USING SCANNED KEY-------")
+	// 	hexKeyBytes := hex.EncodeToString(key)
+	// 	xorString, err := xorByKey(srcString, hexKeyBytes)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
 
-		result[keySize] = xorString
-	}
+	// 	xorBytes, _ := hex.DecodeString(xorString)
+	// 	xorResult := string(xorBytes)
 
-	for key, value := range result {
-		fmt.Println(key)
-		fmt.Println(value)
-		fmt.Println("---------")
-	}
+	// 	result[keySize] = xorResult
+	// }
 }
 
 ////////////// -----------------------------------------------------
@@ -441,6 +440,10 @@ func score(srcString string) (score float32) {
 		txt := string(srcString[i])
 
 		switch txt {
+		// case "\n":
+		// 	score += 7.80
+		// case "'", ",":
+		// 	score += 8.00
 		case " ":
 			score += 13.00
 		case "e", "E":
@@ -610,8 +613,8 @@ func decodeFile(resource string) []byte {
 	return decodedBytes[:n]
 }
 
-func scanKeySizes(decodedBytes []byte, minKeySize int, maxKeySize int) map[int]float32 {
-	fmt.Println(decodedBytes)
+func scanKeySizes(decodedBytes []byte, minKeySize int, maxKeySize int, iterations int) map[int]float32 {
+	// fmt.Println(decodedBytes)
 
 	// attach a reader for easier reading / seeking
 	bufReader := bytes.NewReader(decodedBytes)
@@ -627,32 +630,47 @@ func scanKeySizes(decodedBytes []byte, minKeySize int, maxKeySize int) map[int]f
 		buf := make([]byte, currentKeySize)
 		// fmt.Println("---")
 
-		// read CURRENTKEYSIZE from buffer
-		_, err := bufReader.Read(buf)
-		if err != nil {
-			log.Fatal(err)
+		var totalDist float32 = 0.0000
+		for i := 0; i < iterations; i++ {
+			// read CURRENTKEYSIZE from buffer
+			_, err := bufReader.Read(buf)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			// store buffer contents as string for later processing
+			alpha := string(buf)
+			// fmt.Println("alpha: ", buf)
+
+			// read another CURRENTKEYSIZE from buffer
+			_, err = bufReader.Read(buf)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			beta := string(buf)
+			// fmt.Println("beta", buf)
+
+			distance := getHammingDistance(alpha, beta)
+			// fmt.Println("dist: ", distance)
+
+			totalDist += float32(distance)
+
+			// var normDistance float32 = float32(distance) / float32(currentKeySize)
+			// fmt.Println("norm dist: ", normDistance)
+
+			// update the normalized hamming distance of the 2 strings
+			// if normDistance <= smallestDistance {
+			// 	smallestDistance = normDistance
+
+			// 	topKeySizeMap[currentKeySize] = normDistance
+			// }
 		}
 
-		// store buffer contents as string for later processing
-		alpha := string(buf)
-		// fmt.Println("alpha: ", buf)
+		var mean float32 = totalDist / float32(iterations)
+		// fmt.Println("Mean: ", mean)
 
-		// read another CURRENTKEYSIZE from buffer
-		_, err = bufReader.Read(buf)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		beta := string(buf)
-		// fmt.Println("beta", buf)
-
-		distance := getHammingDistance(alpha, beta)
-		// fmt.Println("dist: ", distance)
-
-		var normDistance float32 = float32(distance) / float32(currentKeySize)
-		// fmt.Println("norm dist: ", normDistance)
-
-		// update the normalized hamming distance of the 2 strings
+		var normDistance float32 = mean / float32(currentKeySize)
 		if normDistance <= smallestDistance {
 			smallestDistance = normDistance
 
@@ -750,8 +768,8 @@ func scanKeys(transposedBlocks [][]byte) []byte {
 		hexString := hex.EncodeToString(blockBytes)
 		// fmt.Println(hexString)
 
-		score, _, cypherKey := rotateASCIIChars(hexString)
-		fmt.Println("score: ", score)
+		_, _, cypherKey := rotateASCIIChars(hexString)
+		// fmt.Println("score: ", score)
 		// fmt.Println("c-key: ", cypherKey) // should be [49 43 45]
 
 		cypherByte, _ := hex.DecodeString(cypherKey)

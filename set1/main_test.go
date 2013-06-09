@@ -138,7 +138,10 @@ func Test_XORByKey_1(t *testing.T) {
 	// Decrypt result back into source string via the key
 	result, err = xorByKey(expectedResult, keyBytes)
 
+	// Decode hex-string into a byte-array
 	resultBytes, _ := hex.DecodeString(result)
+
+	// cast byte-array into string
 	resultString := string(resultBytes)
 
 	if err != nil {
@@ -277,5 +280,67 @@ func Test_DecodeFileAndXOR_1(t *testing.T) {
 
 	if resultString != expectedResult {
 		t.Error("Result was not equal to expected value.")
+	}
+}
+
+func Test_ScanKeySizes_1(t *testing.T) {
+	// iterations = 3
+	// the point of this test is to prove that the key size encode = 3 is the top keysize
+	// this has been encode with 'ICE'
+	// key := 'ICE'
+	// srcString := "Burning 'em, if you ain't quick and nimble\nI go crazy when I hear a cymbal"
+	expectedTopKeySize := 3
+	var expectedScore float32 = 2.222222
+	encodedString := "0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f"
+
+	stringBytes, _ := hex.DecodeString(encodedString)
+
+	distanceMap := scanKeySizes(stringBytes, 2, 12, 3)
+
+	if distanceMap[expectedTopKeySize] > distanceMap[2] {
+		t.Error("Key Size result was not not expected result.")
+	}
+
+	if distanceMap[3] != expectedScore {
+		t.Error("Key Score result was not expected value.")
+	}
+}
+
+func Test_ScanKeySizes_2(t *testing.T) {
+	// iterations = 3
+	expectedTopKeySize := 3
+	var expectedScore float32 = 2.222222
+	resource := "./resources/test_encoded.txt"
+
+	// get byte-array holding decoded data from file
+	stringBytes := decodeFile(resource)
+
+	distanceMap := scanKeySizes(stringBytes, 2, 12, 3)
+
+	if distanceMap[expectedTopKeySize] > distanceMap[2] {
+		t.Error("Key Size result was not not expected result.")
+	}
+
+	if distanceMap[3] != expectedScore {
+		t.Error("Key Score result was not expected value.")
+	}
+}
+
+func Test_ScanKeySizes_3(t *testing.T) {
+	resource := "./resources/gistfile2.txt"
+	expectedTopKeySize := 29
+
+	// get byte-array holding decoded data from file
+	stringBytes := decodeFile(resource)
+
+	distanceMap := scanKeySizes(stringBytes, 2, 40, 32)
+
+	// iterate over result map and check that distanceMap[29] is lowest
+	for k, _ := range distanceMap {
+		if k != expectedTopKeySize {
+			if distanceMap[expectedTopKeySize] > distanceMap[k] {
+				t.Error("Key Score result was not expected value.")
+			}
+		}
 	}
 }
