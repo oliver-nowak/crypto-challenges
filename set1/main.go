@@ -15,78 +15,23 @@ import (
 
 func main() {
 	fmt.Println("Matasano Crypto Challenges for Set 01")
+	fmt.Println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
-	// challenge01()
-	// challenge02()
-	// challenge03()
-	// challenge04()
-	// challenge05()
-	// challenge06()
-	// challenge07()
+	challenge01()
+	fmt.Println("---------------")
+	challenge02()
+	fmt.Println("---------------")
+	challenge03()
+	fmt.Println("---------------")
+	challenge04()
+	fmt.Println("---------------")
+	challenge05()
+	fmt.Println("---------------")
+	challenge06()
+	fmt.Println("---------------")
+	challenge07()
+	fmt.Println("---------------")
 	challenge08()
-	// test()
-}
-
-func test() {
-	resource := "./resources/test_encoded.txt"
-
-	// get byte-array holding decoded data from file
-	decodedBytes := decodeFile(resource)
-
-	// get top key sizes, along with their h-distance
-	distanceMap := scanKeySizes(decodedBytes, 2, 40, 10)
-
-	fmt.Println("topKeySizes: ", distanceMap)
-
-	// hard-coded KEYSIZE for known resource key; should be parameterized
-	keySize := 3
-
-	// chop up bytes into KEYSIZE blocks in a 2D array
-	blocks := createBlocks(decodedBytes, keySize)
-
-	fmt.Println("blocks: ", blocks)
-
-	// slice out all bytes from a particular key position
-	transposedBlocks := createTransposeBlocks(decodedBytes, keySize)
-
-	fmt.Println("t-blocks: ", transposedBlocks)
-
-	key := scanKeys(transposedBlocks)
-	fmt.Println("scanned key: ", key)
-
-	// DEBUG
-	// test that the decoded bytes from the test file will actually decrypt to a known state given a known XOR key
-	srcString := hex.EncodeToString(decodedBytes)
-	fmt.Println(srcString)
-
-	fmt.Println("--------USING KNOWN KEY---------")
-	cypherKey := "ICE"
-	cypherKeyBytes := []byte(cypherKey)
-	fmt.Println("DEBUG cypherKeyBytes: ", cypherKeyBytes)
-
-	hexKeyBytes := hex.EncodeToString(cypherKeyBytes)
-	fmt.Println("DEBUG hexKeyBytes: ", hexKeyBytes)
-
-	xorString, err := xorByKey(srcString, hexKeyBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	xorBytes, _ := hex.DecodeString(xorString)
-	xorResult := string(xorBytes)
-	fmt.Println(xorResult)
-
-	//---------------------------USING SCANNED KEY ----------------------
-
-	fmt.Println("--------USING SCANNED KEY-------")
-	hexKeyBytes = hex.EncodeToString(key)
-	xorString, err = xorByKey(srcString, hexKeyBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-	xorBytes, _ = hex.DecodeString(xorString)
-	xorResult = string(xorBytes)
-	fmt.Println(xorResult)
 }
 
 func challenge01() {
@@ -303,8 +248,6 @@ func challenge06() {
 		}
 	}
 
-	fmt.Println("Top Key Size: ", keySize)
-
 	// slice out all bytes from a particular key position
 	transposedBlocks := createTransposeBlocks(decodedBytes, keySize)
 
@@ -315,7 +258,6 @@ func challenge06() {
 
 	//---------------------------USING SCANNED KEY TO DECRYPT----------------------
 
-	fmt.Println("--------USING SCANNED KEY-------")
 	hexKeyBytes := hex.EncodeToString(key)
 	xorString, err := xorByKey(srcString, hexKeyBytes)
 	if err != nil {
@@ -375,12 +317,27 @@ func challenge07() {
 }
 
 func challenge08() {
+	// ------------------------------------------------------------
+
+	// 8. Detecting ECB
+
+	// At the following URL are a bunch of hex-encoded ciphertexts:
+
+	//    https://gist.github.com/3132928
+
+	// One of them is ECB encrypted. Detect it.
+
+	// Remember that the problem with ECB is that it is stateless and
+	// deterministic; the same 16 byte plaintext block will always produce
+	// the same 16 byte ciphertext.
+
+	// ------------------------------------------------------------
+	fmt.Println("Challenge 08")
 	resource := "./resources/gistfile5.txt"
 
 	f, err := os.Open(resource)
 	if err != nil {
-		fmt.Printf("error opening file: %v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	r := bufio.NewReader(f)
 
@@ -390,8 +347,9 @@ func challenge08() {
 
 	lineNumber := 1
 
-	// read each line
 	scanner := bufio.NewScanner(r)
+
+	// read each line
 	for scanner.Scan() {
 		txt := scanner.Text()
 		lineBytes := []byte(txt)
@@ -425,36 +383,6 @@ func challenge08() {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-}
-
-func challenge08test() {
-	fmt.Println("Challenge 08")
-	// 32 char string - 2 blocks of 16bytes
-	testBytes := []byte("fire fire pants on fire once ire")
-	// testBytes := []byte("on fire once irefire fire pants ")
-
-	block, _ := aes.NewCipher([]byte("YELLOW SUBMARINE"))
-
-	dst := make([]byte, 32)
-
-	for i := 0; i < 2; i++ {
-		begin := i * 16
-		end := (begin + 16) - 1
-
-		block.Encrypt(dst[begin:end], testBytes[begin:end])
-	}
-	fmt.Println(dst)
-	fmt.Println(hex.EncodeToString(dst))
-
-	for i := 0; i < 2; i++ {
-		begin := i * 16
-		end := (begin + 16) - 1
-
-		block.Decrypt(dst[begin:end], dst[begin:end])
-	}
-
-	plainText := string(dst)
-	fmt.Println(plainText)
 }
 
 ////////////// -----------------------------------------------------
@@ -735,8 +663,6 @@ func decodeFile(resource string) []byte {
 }
 
 func scanKeySizes(decodedBytes []byte, minKeySize int, maxKeySize int, iterations int) map[int]float32 {
-	// fmt.Println(decodedBytes)
-
 	// attach a reader for easier reading / seeking
 	bufReader := bytes.NewReader(decodedBytes)
 
@@ -749,7 +675,6 @@ func scanKeySizes(decodedBytes []byte, minKeySize int, maxKeySize int, iteration
 	for currentKeySize := minKeySize; currentKeySize <= maxKeySize; currentKeySize++ {
 		// allocate byte buffer
 		buf := make([]byte, currentKeySize)
-		// fmt.Println("---")
 
 		var totalDist float32 = 0.0000
 		for i := 0; i < iterations; i++ {
@@ -761,7 +686,6 @@ func scanKeySizes(decodedBytes []byte, minKeySize int, maxKeySize int, iteration
 
 			// store buffer contents as string for later processing
 			alpha := string(buf)
-			// fmt.Println("alpha: ", buf)
 
 			// read another CURRENTKEYSIZE from buffer
 			_, err = bufReader.Read(buf)
@@ -770,28 +694,15 @@ func scanKeySizes(decodedBytes []byte, minKeySize int, maxKeySize int, iteration
 			}
 
 			beta := string(buf)
-			// fmt.Println("beta", buf)
 
 			distance := getHammingDistance(alpha, beta)
-			// fmt.Println("dist: ", distance)
 
 			totalDist += float32(distance)
-
-			// var normDistance float32 = float32(distance) / float32(currentKeySize)
-			// fmt.Println("norm dist: ", normDistance)
-
-			// update the normalized hamming distance of the 2 strings
-			// if normDistance <= smallestDistance {
-			// 	smallestDistance = normDistance
-
-			// 	topKeySizeMap[currentKeySize] = normDistance
-			// }
 		}
 
 		var mean float32 = totalDist / float32(iterations)
-		// fmt.Println("Mean: ", mean)
-
 		var normDistance float32 = mean / float32(currentKeySize)
+
 		if normDistance <= smallestDistance {
 			smallestDistance = normDistance
 
@@ -802,9 +713,6 @@ func scanKeySizes(decodedBytes []byte, minKeySize int, maxKeySize int, iteration
 		bufReader.Seek(0, os.SEEK_SET)
 	}
 
-	// fmt.Println("Smallest Hamming Distance: ", smallestDistance)
-	// fmt.Println("topKeySizeMap: ", topKeySizeMap)
-
 	return topKeySizeMap
 }
 
@@ -813,10 +721,6 @@ func createBlocks(decodedBytes []byte, keySize int) [][]byte {
 	bufReader := bytes.NewReader(decodedBytes)
 
 	numBlocks := len(decodedBytes) / keySize
-
-	// fmt.Println(len(decodedBytes))
-	// fmt.Println(keySize)
-	// fmt.Println("numBlocks: ", numBlocks)
 
 	// allocate a 2D array for holding KEYSIZE arrays
 	blocks := make([][]byte, numBlocks)
@@ -836,15 +740,11 @@ func createTransposeBlocks(decodedBytes []byte, keySize int) [][]byte {
 	// attach a reader for easier reading / seeking
 	bufReader := bytes.NewReader(decodedBytes)
 
-	// fmt.Println("keySize: ", keySize)
-
 	// size of each transposed key block holding bytes for that particular 'key position' within KEYSIZE
 	sizeOfKeyBlock := len(decodedBytes) / keySize
-	// fmt.Println("sizeOfKeyBlock: ", sizeOfKeyBlock)
 
 	// this is the number of un-transposed blocks if you were to chop up bytes into KEYSIZE bins
 	numBlocks := len(decodedBytes) / keySize
-	// fmt.Println("numBlocks: ", numBlocks)
 
 	// allocate storage for the transposed blocks
 	transposedBlocks := make([][]byte, keySize)
@@ -872,27 +772,16 @@ func createTransposeBlocks(decodedBytes []byte, keySize int) [][]byte {
 }
 
 func scanKeys(transposedBlocks [][]byte) []byte {
-	fmt.Println("Scanning Keys...")
-
 	keyLen := len(transposedBlocks)
-	// fmt.Println("KeyLen: ", keyLen)
 
 	key := make([]byte, keyLen)
 
 	// iterate through list of transposed blocks and find the topscorer of the XOR scan within each t-block
 	for blockIdx := range transposedBlocks {
-		// fmt.Println("Block IDX: ", blockIdx)
-
 		blockBytes := transposedBlocks[blockIdx]
-		// fmt.Println(blockBytes)
 
 		hexString := hex.EncodeToString(blockBytes)
-		// fmt.Println(hexString)
-
 		_, _, cypherKey := rotateASCIIChars(hexString)
-		// fmt.Println("score: ", score)
-		// fmt.Println("c-key: ", cypherKey) // should be [49 43 45]
-
 		cypherByte, _ := hex.DecodeString(cypherKey)
 
 		// store the first byte in the cypherByte array: **NOTE** it should only have one byte
