@@ -3,11 +3,11 @@ package main
 import (
 	"bufio"
 	"bytes"
+	aes "crypto/aes"
 	"encoding/base64"
 	hex "encoding/hex"
 	"errors"
 	"fmt"
-	// "io"
 	ioutil "io/ioutil"
 	"log"
 	"os"
@@ -21,7 +21,9 @@ func main() {
 	// challenge03()
 	// challenge04()
 	// challenge05()
-	challenge06()
+	// challenge06()
+	challenge07()
+	// challenge08()
 	// test()
 }
 
@@ -324,6 +326,68 @@ func challenge06() {
 	xorResult := string(xorBytes)
 
 	fmt.Println(xorResult)
+}
+
+func challenge07() {
+	// ------------------------------------------------------------
+
+	// 7. AES in ECB Mode
+
+	// The Base64-encoded content at the following location:
+
+	//     https://gist.github.com/3132853
+
+	// Has been encrypted via AES-128 in ECB mode under the key
+
+	//     "YELLOW SUBMARINE".
+
+	// (I like "YELLOW SUBMARINE" because it's exactly 16 bytes long).
+
+	// Decrypt it.
+
+	// Easiest way:
+
+	// Use OpenSSL::Cipher and give it AES-128-ECB as the cipher.
+
+	// ------------------------------------------------------------
+	fmt.Println("Challenge 07")
+
+	resource := "./resources/gistfile4.txt"
+
+	// open file handle and read contents
+	decodedBytes := decodeFile(resource)
+	blockSize := 16
+
+	// calculate number of blocks to decrypt
+	numBlocks := len(decodedBytes) / blockSize
+
+	dst := make([]byte, len(decodedBytes))
+
+	block, _ := aes.NewCipher([]byte("YELLOW SUBMARINE"))
+
+	for i := 0; i < numBlocks; i++ {
+		begin := i * blockSize
+		end := (begin + blockSize) - 1
+		block.Decrypt(dst[begin:end], decodedBytes[begin:end])
+	}
+	plainText := string(dst)
+	fmt.Println(plainText)
+}
+
+func challenge08() {
+	// 32 char string - 2 blocks of 16bytes
+	testBytes := []byte("fire fire pants on fire once ire")
+
+	block, _ := aes.NewCipher([]byte("YELLOW SUBMARINE"))
+
+	dst := make([]byte, 32)
+
+	for i := 0; i < 2; i++ {
+		begin := i * 16
+		end := (begin + 16) - 1
+
+		block.Encrypt(dst[begin:end], testBytes[begin:end])
+	}
 }
 
 ////////////// -----------------------------------------------------
