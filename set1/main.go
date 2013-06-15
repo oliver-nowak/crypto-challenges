@@ -19,18 +19,25 @@ func main() {
 
 	challenge01()
 	fmt.Println("---------------")
+
 	challenge02()
 	fmt.Println("---------------")
+
 	challenge03()
 	fmt.Println("---------------")
+
 	challenge04()
 	fmt.Println("---------------")
+
 	challenge05()
 	fmt.Println("---------------")
+
 	challenge06()
 	fmt.Println("---------------")
+
 	challenge07()
 	fmt.Println("---------------")
+
 	challenge08()
 }
 
