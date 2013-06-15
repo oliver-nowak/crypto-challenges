@@ -22,8 +22,8 @@ func main() {
 	// challenge04()
 	// challenge05()
 	// challenge06()
-	challenge07()
-	// challenge08()
+	// challenge07()
+	challenge08()
 	// test()
 }
 
@@ -375,8 +375,63 @@ func challenge07() {
 }
 
 func challenge08() {
+	resource := "./resources/gistfile5.txt"
+
+	f, err := os.Open(resource)
+	if err != nil {
+		fmt.Printf("error opening file: %v\n", err)
+		os.Exit(1)
+	}
+	r := bufio.NewReader(f)
+
+	// create hashmap that will reference ALL lines that are AES-128 ECB encrypted
+	// the hash KEY will be the line-number, the hash VALUE will be the number of dupe blocks detected.
+	detectedAESData := map[int]int{}
+
+	lineNumber := 1
+
+	// read each line
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		txt := scanner.Text()
+		lineBytes := []byte(txt)
+
+		// split blocks according to block size (16 for AES-128)
+		blocks := createBlocks(lineBytes, 16)
+
+		// create the hashmap that will track dupe blocks
+		dupeBlockDetector := map[string]int{}
+
+		// iterate across blocks, convert to hex-based string, and insert into hash map
+		for idx := range blocks {
+			hash := hex.EncodeToString(blocks[idx])
+			dupeBlockDetector[hash] += 1
+		}
+
+		// check hashmap for dupes
+		for _, v := range dupeBlockDetector {
+			if v > 1 {
+				detectedAESData[lineNumber] += v
+			}
+		}
+
+		lineNumber += 1
+	}
+
+	for k, _ := range detectedAESData {
+		fmt.Println("Detected AES-encrypted line at #", k)
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func challenge08test() {
+	fmt.Println("Challenge 08")
 	// 32 char string - 2 blocks of 16bytes
 	testBytes := []byte("fire fire pants on fire once ire")
+	// testBytes := []byte("on fire once irefire fire pants ")
 
 	block, _ := aes.NewCipher([]byte("YELLOW SUBMARINE"))
 
@@ -388,6 +443,18 @@ func challenge08() {
 
 		block.Encrypt(dst[begin:end], testBytes[begin:end])
 	}
+	fmt.Println(dst)
+	fmt.Println(hex.EncodeToString(dst))
+
+	for i := 0; i < 2; i++ {
+		begin := i * 16
+		end := (begin + 16) - 1
+
+		block.Decrypt(dst[begin:end], dst[begin:end])
+	}
+
+	plainText := string(dst)
+	fmt.Println(plainText)
 }
 
 ////////////// -----------------------------------------------------
