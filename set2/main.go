@@ -3,8 +3,10 @@ package main
 import (
 	// hex "encoding/hex"
 	aes "crypto/aes"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	ioutil "io/ioutil"
 	"log"
 )
 
@@ -72,18 +74,16 @@ func challenge10() {
 	// ------------------------------------------------------------
 	fmt.Println("Challenge 10")
 
-	input := []byte("This is a test message for test.") // 32 bytes
+	resource := "./resources/gistfile1.txt"
 	key := []byte("YELLOW SUBMARINE")
 	blockSize := 16
-
 	iv := make([]byte, blockSize)
-	fmt.Println("IV: ", iv)
 
-	dst := EncryptCBC(input, key, iv, blockSize)
-	fmt.Println(dst)
+	// open file handle and read contents
+	decodedBytes := decodeFile(resource)
 
-	out := DecryptCBC(dst, key, iv, blockSize)
-	fmt.Println(string(out))
+	result := DecryptCBC(decodedBytes, key, iv, blockSize)
+	fmt.Println(string(result))
 }
 
 ////////////// -----------------------------------------------------
@@ -300,4 +300,24 @@ func padBytes(block []byte, blockLength int) []byte {
 
 	// append pad bytes to end of block and return
 	return append(block, padBytes...)
+}
+
+func decodeFile(resource string) []byte {
+	// open file handle and read contents
+	fin, err := ioutil.ReadFile(resource)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// allocate memory at least as large as source size in bytes
+	decodedBytes := make([]byte, len(fin))
+
+	// decode the file
+	n, err := base64.StdEncoding.Decode(decodedBytes, fin)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// trim slice to actual size of data
+	return decodedBytes[:n]
 }
