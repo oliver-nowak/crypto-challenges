@@ -164,3 +164,49 @@ func Test_XORBytes_2(t *testing.T) {
 		t.Error("Result is not equal to expected value.", err)
 	}
 }
+
+func Test_EncryptCBC_1(t *testing.T) {
+	// encrypt via AES-CBC
+
+	input := []byte("This is a test message for test.") // 32 bytes
+	key := []byte("YELLOW SUBMARINE")
+	blockSize := 16
+	iv := make([]byte, blockSize)
+	expectedResult := []byte{89, 245, 143, 60, 140, 62, 115, 150, 176, 229, 133, 179, 184, 50, 45, 56, 147, 121, 79, 122, 30, 173, 189, 143, 201, 130, 154, 2, 158, 128, 0, 63}
+
+	result := EncryptCBC(input, key, iv, blockSize)
+
+	if !bytes.Equal(result, expectedResult) {
+		t.Error("Result is not equal to expected value.")
+	}
+}
+
+func Test_DecryptCBC_1(t *testing.T) {
+	// test decryption
+	input := []byte{89, 245, 143, 60, 140, 62, 115, 150, 176, 229, 133, 179, 184, 50, 45, 56, 147, 121, 79, 122, 30, 173, 189, 143, 201, 130, 154, 2, 158, 128, 0, 63}
+	key := []byte("YELLOW SUBMARINE")
+	blockSize := 16
+	iv := make([]byte, blockSize)
+	expectedResult := []byte("This is a test message for test.")
+
+	result := DecryptCBC(input, key, iv, blockSize)
+
+	if !bytes.Equal(result, expectedResult) {
+		t.Error("Result is not equal to expected value.")
+	}
+}
+
+func Test_Encrypt_DecryptCBC_1(t *testing.T) {
+	// test that you can encrypt/decrypt in one pass
+	input := []byte("This is a test message for test.") // 32 bytes
+	key := []byte("YELLOW SUBMARINE")
+	blockSize := 16
+	iv := make([]byte, blockSize)
+
+	dst := EncryptCBC(input, key, iv, blockSize)
+	result := DecryptCBC(dst, key, iv, blockSize)
+
+	if !bytes.Equal(result, input) {
+		t.Error("Round-trip CBC Encrypt-Decrypt result is not equal to expected value.")
+	}
+}

@@ -76,9 +76,11 @@ func challenge10() {
 	key := []byte("YELLOW SUBMARINE")
 	blockSize := 16
 
-	dst, iv := EncryptCBC(input, key, blockSize)
+	iv := make([]byte, blockSize)
+	fmt.Println("IV: ", iv)
+
+	dst := EncryptCBC(input, key, iv, blockSize)
 	fmt.Println(dst)
-	fmt.Println(iv)
 
 	out := DecryptCBC(dst, key, iv, blockSize)
 	fmt.Println(string(out))
@@ -161,15 +163,11 @@ func EncryptECB(input []byte, key []byte, blockSize int) (output []byte) {
 	return output
 }
 
-func EncryptCBC(input []byte, key []byte, blockSize int) (output []byte, iv []byte) {
+func EncryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []byte) {
 	// implement CBC mode endcryption for AES
 	// https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation
 
-	iv = make([]byte, blockSize)
-	fmt.Println("IV: ", iv)
-
 	numBlocks := len(input) / blockSize
-	fmt.Println("numBlocks: ", numBlocks)
 
 	// allocate storage for encrypted bytes
 	output = make([]byte, len(input))
@@ -182,9 +180,6 @@ func EncryptCBC(input []byte, key []byte, blockSize int) (output []byte, iv []by
 		begin := i * blockSize
 		end := (begin + blockSize)
 
-		fmt.Println("begin: ", begin)
-		fmt.Println("end: ", end)
-
 		var result []byte
 		var err error
 		// on the very first iteration, XOR the plain-text with the IV
@@ -195,7 +190,6 @@ func EncryptCBC(input []byte, key []byte, blockSize int) (output []byte, iv []by
 				log.Fatal(err)
 			}
 
-			// encrypt: result
 			block.Encrypt(output[begin:end], result)
 		} else {
 			// on all remaining iterations, XOR the plain-text with the encrypted
@@ -203,8 +197,6 @@ func EncryptCBC(input []byte, key []byte, blockSize int) (output []byte, iv []by
 			// then encrypt the result and save in OUTPUT byte-array
 			prevBegin := begin - blockSize
 			prevEnd := (end - blockSize)
-			fmt.Println("prevBegin: ", prevBegin)
-			fmt.Println("prevEnd: ", prevEnd)
 
 			result, err = XORBytes(input[begin:end], output[prevBegin:prevEnd])
 			if err != nil {
@@ -212,15 +204,10 @@ func EncryptCBC(input []byte, key []byte, blockSize int) (output []byte, iv []by
 			}
 
 			block.Encrypt(output[begin:end], result)
-			// TODO: need idx of previous block
-			// result, err = XORBytes(// plain-text of current block, // cyphertext of previous block)
-
-			// encrypt: result
 		}
-		fmt.Println(result)
 	}
 
-	return output, iv
+	return output
 }
 
 func DecryptECB(input []byte, key []byte, blockSize int) (output []byte) {
@@ -247,7 +234,6 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 	// https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation
 
 	numBlocks := len(input) / blockSize
-	fmt.Println("numBlocks: ", numBlocks)
 
 	// allocate storage for encrypted bytes
 	output = make([]byte, len(input))
@@ -262,9 +248,6 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 	for i := 0; i < numBlocks; i++ {
 		begin := i * blockSize
 		end := (begin + blockSize)
-
-		fmt.Println("begin: ", begin)
-		fmt.Println("end: ", end)
 
 		decryptResult := make([]byte, blockSize)
 		var err error
@@ -283,8 +266,6 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 		} else {
 			prevBegin := begin - blockSize
 			prevEnd := (end - blockSize)
-			fmt.Println("prevBegin: ", prevBegin)
-			fmt.Println("prevEnd: ", prevEnd)
 
 			// decrypt current block
 			block.Decrypt(decryptResult, input[begin:end])
@@ -298,7 +279,6 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 			// copy XOR'd byte-slice into plain-text output
 			copy(output[begin:end], xorResult)
 		}
-		fmt.Println(output)
 	}
 
 	return output
