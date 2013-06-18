@@ -17,9 +17,9 @@ func main() {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	challenge09()
+	// challenge09()
 	// challenge10()
-	// challenge11()
+	challenge11()
 }
 
 func challenge09() {
@@ -41,9 +41,9 @@ func challenge09() {
 	// ------------------------------------------------------------
 	fmt.Println("Challenge 09")
 
-	input := "YELLOW"
+	input := "YELLOW SUBMARINE"
 
-	bytes := padBytes([]byte(input), 16)
+	bytes := padBytes([]byte(input), 20)
 
 	output := string(bytes)
 	fmt.Println(output)
@@ -403,6 +403,7 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 func padBytes(input []byte, blockLength int) []byte {
 	// implements PKCS#7 padding
 	inputLen := len(input)
+
 	remainder := inputLen % blockLength
 
 	// derive the integer value
