@@ -8,13 +8,18 @@ import (
 	"fmt"
 	ioutil "io/ioutil"
 	"log"
+	"math/rand"
+	"time"
 )
 
 func main() {
 	fmt.Println("Matasano Crypto Challenges for Set 02")
 
+	rand.Seed(time.Now().UTC().UnixNano())
+
 	challenge09()
-	challenge10()
+	// challenge10()
+	// challenge11()
 }
 
 func challenge09() {
@@ -36,9 +41,9 @@ func challenge09() {
 	// ------------------------------------------------------------
 	fmt.Println("Challenge 09")
 
-	input := "YELLOW SUBMARINE"
+	input := "YELLOW"
 
-	bytes := padBytes([]byte(input), 20)
+	bytes := padBytes([]byte(input), 16)
 
 	output := string(bytes)
 	fmt.Println(output)
@@ -86,6 +91,43 @@ func challenge10() {
 	fmt.Println(string(result))
 }
 
+func challenge11() {
+	// ------------------------------------------------------------
+
+	// 11. Write an oracle function and use it to detect ECB.
+
+	// Now that you have ECB and CBC working:
+
+	// Write a function to generate a random AES key; that's just 16 random
+	// bytes.
+
+	// Write a function that encrypts data under an unknown key --- that is,
+	// a function that generates a random key and encrypts under it.
+
+	// The function should look like:
+
+	// encryption_oracle(your-input)
+	//  => [MEANINGLESS JIBBER JABBER]
+
+	// Under the hood, have the function APPEND 5-10 bytes (count chosen
+	// randomly) BEFORE the plaintext and 5-10 bytes AFTER the plaintext.
+
+	// Now, have the function choose to encrypt under ECB 1/2 the time, and
+	// under CBC the other half (just use random IVs each time for CBC). Use
+	// rand(2) to decide which to use.
+
+	// Now detect the block cipher mode the function is using each time.
+
+	// ------------------------------------------------------------
+	fmt.Println("Challenge 11")
+
+	test := encryptionOracle("YELLOW SUBMARINE")
+	fmt.Println(test)
+
+	// TODO: add PKCS7 padding to encryption protocols ???
+	// TODO: add PKCS7 pad stripping to decryption protocols ??
+}
+
 ////////////// -----------------------------------------------------
 
 //////////////------------------------------------------------------
@@ -105,6 +147,75 @@ func challenge10() {
 //////////////------------------------------------------------------
 
 //////////////------------------------------------------------------
+
+func encryptionOracle(input string) (output []byte) {
+	prependedBytes := prependRandomBytes([]byte(input))
+	appendedBytes := appendRandomBytes(prependedBytes)
+
+	blockSize := 16
+	randomKey := createRandomKey(blockSize)
+	coinFlip := randInt(1, 2)
+
+	if coinFlip == 1 {
+		fmt.Println("Chose CBC")
+		iv := createRandomIV(blockSize)
+		output = EncryptCBC(appendedBytes, randomKey, iv, blockSize)
+	} else {
+		fmt.Println("Chose ECB")
+		output = EncryptECB(appendedBytes, randomKey, blockSize)
+	}
+
+	return output
+}
+
+func prependRandomBytes(input []byte) []byte {
+	nBeforeBytes := randInt(5, 10)
+	prependBytes := make([]byte, nBeforeBytes)
+
+	for i := 0; i < nBeforeBytes; i++ {
+		prependBytes[i] = byte(rand.Int())
+	}
+	fmt.Println("Prepend Bytes: ", prependBytes)
+
+	prependBytes = append(prependBytes, input...)
+	fmt.Println("Prepended Input bytes: ", prependBytes)
+
+	return prependBytes
+}
+
+func appendRandomBytes(input []byte) []byte {
+	nAfterBytes := randInt(5, 10)
+
+	appendBytes := make([]byte, nAfterBytes)
+	for i := 0; i < nAfterBytes; i++ {
+		appendBytes[i] = byte(rand.Int())
+	}
+	fmt.Println("Append Bytes: ", appendBytes)
+
+	appendBytes = append(input, appendBytes...)
+	fmt.Println("All bytes: ", appendBytes)
+
+	return appendBytes
+}
+
+func createRandomIV(size int) []byte {
+	return createRandomKey(size)
+}
+
+func createRandomKey(size int) (key []byte) {
+	key = make([]byte, size)
+	for i := 0; i < size; i++ {
+		// random int range is range of printable ASCII characters
+		key[i] = byte(randInt(32, 126))
+	}
+	return key
+}
+
+func randInt(min int, max int) int {
+	// max is exclusive NOT inclusive for INTN, so add 1.
+	max = max + 1
+	return min + rand.Intn(max-min)
+}
 
 func XORStrings(a string, b string) (xorBytes []byte, err error) {
 	byteArray01 := []byte(a)
@@ -166,6 +277,11 @@ func EncryptECB(input []byte, key []byte, blockSize int) (output []byte) {
 func EncryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []byte) {
 	// implement CBC mode endcryption for AES
 	// https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation
+
+	// inputLen := len(input)
+	// fmt.Println("inputLen: ", inputLen)
+
+	// nbytes := inputLen % blockSize
 
 	numBlocks := len(input) / blockSize
 
@@ -284,11 +400,13 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 	return output
 }
 
-func padBytes(block []byte, blockLength int) []byte {
+func padBytes(input []byte, blockLength int) []byte {
 	// implements PKCS#7 padding
+	inputLen := len(input)
+	remainder := inputLen % blockLength
 
 	// derive the integer value
-	pkcsIntValue := blockLength - len(block)
+	pkcsIntValue := blockLength - remainder
 
 	// allocate storage of the size of pkcsIntValue
 	padBytes := make([]byte, pkcsIntValue)
@@ -299,7 +417,7 @@ func padBytes(block []byte, blockLength int) []byte {
 	}
 
 	// append pad bytes to end of block and return
-	return append(block, padBytes...)
+	return append(input, padBytes...)
 }
 
 func decodeFile(resource string) []byte {

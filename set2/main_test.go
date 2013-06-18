@@ -57,6 +57,23 @@ func Test_PKCS7Padding_3(t *testing.T) {
 	}
 }
 
+func Test_PKCS7Padding_4(t *testing.T) {
+	input := []byte("DEADMEATCAF") // 11 bytes
+	blockLength := 8
+	expectedByteLen := 16
+	expectedResult := []byte{68, 69, 65, 68, 77, 69, 65, 84, 67, 65, 70, 5, 5, 5, 5, 5}
+
+	result := padBytes(input, blockLength)
+
+	if len(result) != expectedByteLen {
+		t.Error("Result does not equal expected value.")
+	}
+
+	if !bytes.Equal(result, expectedResult) {
+		t.Error("Result bytes do not equal expected bytes.")
+	}
+}
+
 func Test_EncryptECB_1(t *testing.T) {
 	testInput := []byte("This is a test message for test.") // 32 bytes
 	key := []byte("YELLOW SUBMARINE")
