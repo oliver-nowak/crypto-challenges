@@ -149,20 +149,29 @@ func challenge11() {
 //////////////------------------------------------------------------
 
 func encryptionOracle(input string) (output []byte) {
+	fmt.Println("input bytes: ", []byte(input))
+
 	prependedBytes := prependRandomBytes([]byte(input))
 	appendedBytes := appendRandomBytes(prependedBytes)
+	fmt.Println("len of pre-crypted, pre-padded bytes: ", len(appendedBytes))
 
 	blockSize := 16
+
+	// pad input
+	paddedInputBytes := padBytes(appendedBytes, blockSize)
+	fmt.Println("paddedBytes: ", paddedInputBytes)
+	fmt.Println("len of padded bytes: ", len(paddedInputBytes))
+
 	randomKey := createRandomKey(blockSize)
 	coinFlip := randInt(1, 2)
 
 	if coinFlip == 1 {
 		fmt.Println("Chose CBC")
 		iv := createRandomIV(blockSize)
-		output = EncryptCBC(appendedBytes, randomKey, iv, blockSize)
+		output = EncryptCBC(paddedInputBytes, randomKey, iv, blockSize)
 	} else {
 		fmt.Println("Chose ECB")
-		output = EncryptECB(appendedBytes, randomKey, blockSize)
+		output = EncryptECB(paddedInputBytes, randomKey, blockSize)
 	}
 
 	return output
@@ -256,10 +265,15 @@ func XORBytes(a []byte, b []byte) (xorBytes []byte, err error) {
 }
 
 func EncryptECB(input []byte, key []byte, blockSize int) (output []byte) {
+	fmt.Println("input size: ", len(input))
+	fmt.Println("blockSize: ", blockSize)
+
 	numBlocks := len(input) / blockSize
+	fmt.Println("numBlocks to iterate: ", numBlocks)
 
 	// allocate storage for encrypted bytes
 	output = make([]byte, len(input))
+	fmt.Println("len of output bytes: ", len(output))
 
 	// initialize new AES ECB cipher
 	block, _ := aes.NewCipher(key)
@@ -277,11 +291,6 @@ func EncryptECB(input []byte, key []byte, blockSize int) (output []byte) {
 func EncryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []byte) {
 	// implement CBC mode endcryption for AES
 	// https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation
-
-	// inputLen := len(input)
-	// fmt.Println("inputLen: ", inputLen)
-
-	// nbytes := inputLen % blockSize
 
 	numBlocks := len(input) / blockSize
 
@@ -406,19 +415,23 @@ func padBytes(input []byte, blockLength int) []byte {
 
 	remainder := inputLen % blockLength
 
-	// derive the integer value
-	pkcsIntValue := blockLength - remainder
+	if remainder > 0 {
+		// derive the integer value
+		pkcsIntValue := blockLength - remainder
 
-	// allocate storage of the size of pkcsIntValue
-	padBytes := make([]byte, pkcsIntValue)
+		// allocate storage of the size of pkcsIntValue
+		padBytes := make([]byte, pkcsIntValue)
 
-	// initialize the storage with the value pkcsIntValue
-	for i := 0; i < pkcsIntValue; i++ {
-		padBytes[i] = byte(pkcsIntValue)
+		// initialize the storage with the value pkcsIntValue
+		for i := 0; i < pkcsIntValue; i++ {
+			padBytes[i] = byte(pkcsIntValue)
+		}
+
+		// append pad bytes to end of block and return
+		return append(input, padBytes...)
 	}
 
-	// append pad bytes to end of block and return
-	return append(input, padBytes...)
+	return input
 }
 
 func decodeFile(resource string) []byte {
