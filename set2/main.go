@@ -1,14 +1,17 @@
 package main
 
 import (
-	// hex "encoding/hex"
+	"bufio"
+	"bytes"
 	aes "crypto/aes"
 	"encoding/base64"
+	hex "encoding/hex"
 	"errors"
 	"fmt"
 	ioutil "io/ioutil"
 	"log"
 	"math/rand"
+	// "os"
 	"time"
 )
 
@@ -121,11 +124,18 @@ func challenge11() {
 	// ------------------------------------------------------------
 	fmt.Println("Challenge 11")
 
-	test := encryptionOracle("YELLOW SUBMARINE")
-	fmt.Println(test)
+	resource := "./resources/detect_ecb.txt"
 
-	// TODO: add PKCS7 padding to encryption protocols ???
-	// TODO: add PKCS7 pad stripping to decryption protocols ??
+	// open file handle and read contents
+	fin, err := ioutil.ReadFile(resource)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	test := encryptionOracle(string(fin))
+
+	isECB := detectECB(test)
+	fmt.Println("isECB: ", isECB)
 }
 
 ////////////// -----------------------------------------------------
@@ -149,18 +159,10 @@ func challenge11() {
 //////////////------------------------------------------------------
 
 func encryptionOracle(input string) (output []byte) {
-	fmt.Println("input bytes: ", []byte(input))
-
 	prependedBytes := prependRandomBytes([]byte(input))
 	appendedBytes := appendRandomBytes(prependedBytes)
-	fmt.Println("len of pre-crypted, pre-padded bytes: ", len(appendedBytes))
 
 	blockSize := 16
-
-	// pad input
-	paddedInputBytes := padBytes(appendedBytes, blockSize)
-	fmt.Println("paddedBytes: ", paddedInputBytes)
-	fmt.Println("len of padded bytes: ", len(paddedInputBytes))
 
 	randomKey := createRandomKey(blockSize)
 	coinFlip := randInt(1, 2)
@@ -168,10 +170,10 @@ func encryptionOracle(input string) (output []byte) {
 	if coinFlip == 1 {
 		fmt.Println("Chose CBC")
 		iv := createRandomIV(blockSize)
-		output = EncryptCBC(paddedInputBytes, randomKey, iv, blockSize)
+		output = EncryptCBC(appendedBytes, randomKey, iv, blockSize)
 	} else {
 		fmt.Println("Chose ECB")
-		output = EncryptECB(paddedInputBytes, randomKey, blockSize)
+		output = EncryptECB(appendedBytes, randomKey, blockSize)
 	}
 
 	return output
@@ -184,10 +186,8 @@ func prependRandomBytes(input []byte) []byte {
 	for i := 0; i < nBeforeBytes; i++ {
 		prependBytes[i] = byte(rand.Int())
 	}
-	fmt.Println("Prepend Bytes: ", prependBytes)
 
 	prependBytes = append(prependBytes, input...)
-	fmt.Println("Prepended Input bytes: ", prependBytes)
 
 	return prependBytes
 }
@@ -199,10 +199,8 @@ func appendRandomBytes(input []byte) []byte {
 	for i := 0; i < nAfterBytes; i++ {
 		appendBytes[i] = byte(rand.Int())
 	}
-	fmt.Println("Append Bytes: ", appendBytes)
 
 	appendBytes = append(input, appendBytes...)
-	fmt.Println("All bytes: ", appendBytes)
 
 	return appendBytes
 }
@@ -265,15 +263,15 @@ func XORBytes(a []byte, b []byte) (xorBytes []byte, err error) {
 }
 
 func EncryptECB(input []byte, key []byte, blockSize int) (output []byte) {
-	fmt.Println("input size: ", len(input))
-	fmt.Println("blockSize: ", blockSize)
+	// fmt.Println("input size: ", len(input))
+	// fmt.Println("blockSize: ", blockSize)
 
 	numBlocks := len(input) / blockSize
-	fmt.Println("numBlocks to iterate: ", numBlocks)
+	// fmt.Println("numBlocks to iterate: ", numBlocks)
 
 	// allocate storage for encrypted bytes
 	output = make([]byte, len(input))
-	fmt.Println("len of output bytes: ", len(output))
+	// fmt.Println("len of output bytes: ", len(output))
 
 	// initialize new AES ECB cipher
 	block, _ := aes.NewCipher(key)
@@ -452,4 +450,75 @@ func decodeFile(resource string) []byte {
 
 	// trim slice to actual size of data
 	return decodedBytes[:n]
+}
+
+func createBlocks(decodedBytes []byte, keySize int) [][]byte {
+	// attach a reader for easier reading / seeking
+	bufReader := bytes.NewReader(decodedBytes)
+
+	numBlocks := len(decodedBytes) / keySize
+
+	// allocate a 2D array for holding KEYSIZE arrays
+	blocks := make([][]byte, numBlocks)
+	for i := range blocks {
+		blocks[i] = make([]byte, keySize)
+	}
+
+	// init blocks: each block contains KEYSIZE bytes from the bufReader
+	for blockIdx := range blocks {
+		bufReader.Read(blocks[blockIdx])
+	}
+
+	return blocks
+}
+
+func detectECB(encryptedBytes []byte) bool {
+	r := bytes.NewReader(encryptedBytes)
+
+	// create hashmap that will reference ALL lines that are AES-128 ECB encrypted
+	// the hash KEY will be the line-number, the hash VALUE will be the number of dupe blocks detected.
+	detectedAESData := map[int]int{}
+
+	lineNumber := 1
+
+	scanner := bufio.NewScanner(r)
+
+	// read each line
+	for scanner.Scan() {
+		txt := scanner.Text()
+		// fmt.Println(txt)
+		lineBytes := []byte(txt)
+
+		// split blocks according to block size (16 for AES-128)
+		blocks := createBlocks(lineBytes, 16)
+
+		// create the hashmap that will track dupe blocks
+		dupeBlockDetector := map[string]int{}
+
+		// iterate across blocks, convert to hex-based string, and insert into hash map
+		for idx := range blocks {
+			hash := hex.EncodeToString(blocks[idx])
+			dupeBlockDetector[hash] += 1
+		}
+
+		// check hashmap for dupes
+		for _, v := range dupeBlockDetector {
+			if v > 1 {
+				detectedAESData[lineNumber] += v
+			}
+		}
+
+		lineNumber += 1
+	}
+
+	for k, _ := range detectedAESData {
+		fmt.Println("Detected AES-encrypted line at #", k)
+		return true
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	return false
 }

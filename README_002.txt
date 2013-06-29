@@ -242,7 +242,7 @@ The function should then pad out the input to the 16-byte AES block
 length and encrypt it under the random AES key.
 
 The second function should decrypt the string and look for the
-characters ";admin=true;" (or, equivalently, decrypt, split the string
+characters ";admin=true;" (or, equivalently, decrypt, split the stringb
 on ;, convert each resulting string into 2-tuples, and look for the
 "admin" tuple. Return true or false based on whether the string exists.
 
