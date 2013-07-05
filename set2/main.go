@@ -11,7 +11,6 @@ import (
 	ioutil "io/ioutil"
 	"log"
 	"math/rand"
-	// "os"
 	"time"
 )
 
@@ -22,7 +21,8 @@ func main() {
 
 	// challenge09()
 	// challenge10()
-	challenge11()
+	// challenge11()
+	challenge12()
 }
 
 func challenge09() {
@@ -46,10 +46,13 @@ func challenge09() {
 
 	input := "YELLOW SUBMARINE"
 
-	bytes := padBytes([]byte(input), 20)
+	// bytes := padBytes([]byte(input), 20)
 
-	output := string(bytes)
-	fmt.Println(output)
+	// output := string(bytes)
+	// fmt.Println(output)
+
+	padded := padWithPKCS7([]byte(input), 16)
+	fmt.Println("Padded: ", padded)
 }
 
 func challenge10() {
@@ -132,10 +135,130 @@ func challenge11() {
 		log.Fatal(err)
 	}
 
-	test := encryptionOracle(string(fin))
+	encryptedBytes := randomEncryptionOracle(string(fin))
 
-	isECB := detectECB(test)
+	isECB := detectECB(encryptedBytes)
 	fmt.Println("isECB: ", isECB)
+}
+
+func challenge12() {
+	// ------------------------------------------------------------
+
+	// 12. Byte-at-a-time ECB decryption, Full control version
+
+	// Copy your oracle function to a new function that encrypts buffers
+	// under ECB mode using a consistent but unknown key (for instance,
+	// assign a single random key, once, to a global variable).
+
+	// Now take that same function and have it append to the plaintext,
+	// BEFORE ENCRYPTING, the following string:
+
+	//   Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg
+	//   aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq
+	//   dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg
+	//   YnkK
+
+	// SPOILER ALERT: DO NOT DECODE THIS STRING NOW. DON'T DO IT.
+
+	// Base64 decode the string before appending it. DO NOT BASE64 DECODE THE
+	// STRING BY HAND; MAKE YOUR CODE DO IT. The point is that you don't know
+	// its contents.
+
+	// What you have now is a function that produces:
+
+	//   AES-128-ECB(your-string || unknown-string, random-key)
+
+	// You can decrypt "unknown-string" with repeated calls to the oracle
+	// function!
+
+	// Here's roughly how:
+
+	// a. Feed identical bytes of your-string to the function 1 at a time ---
+	// start with 1 byte ("A"), then "AA", then "AAA" and so on. Discover the
+	// block size of the cipher. You know it, but do this step anyway.
+
+	// b. Detect that the function is using ECB. You already know, but do
+	// this step anyways.
+
+	// c. Knowing the block size, craft an input block that is exactly 1 byte
+	// short (for instance, if the block size is 8 bytes, make
+	// "AAAAAAA"). Think about what the oracle function is going to put in
+	// that last byte position.
+
+	// d. Make a dictionary of every possible last byte by feeding different
+	// strings to the oracle; for instance, "AAAAAAAA", "AAAAAAAB",
+	// "AAAAAAAC", remembering the first block of each invocation.
+
+	// e. Match the output of the one-byte-short input to one of the entries
+	// in your dictionary. You've now discovered the first byte of
+	// unknown-string.
+
+	// f. Repeat for the next byte.
+
+	// ANSWER:
+	// Rollin' in my 5.0
+	// With my rag-top down so my hair can blow
+	// The girlies on standby waving just to say hi
+	// Did you stop? No, I just drove by
+
+	// ------------------------------------------------------------
+	fmt.Println("Challenge 12")
+
+	// create global random key
+	blockSize := 16
+	randomKey := createRandomKey(blockSize)
+
+	// load secret message
+	secretMessageFile := "./resources/secret_message.txt"
+	secretMessageBytes := decodeFile(secretMessageFile)
+	secret_message := string(secretMessageBytes)
+
+	// secret_message := "secret message"
+
+	sizeSecretMessage := len(secret_message)
+
+	// declare an uninitialized byte-array to append decrypted bytes
+	var decryptedMessageBytes []byte
+
+	// create a plain text injection message of size BLOCK less 1 byte
+	plainTextInjectionMessage := "AAAAAAAAAAAAAAA"
+
+	// iterate through bytes of secret message, creating a slice of the secret message byte array for plain text injection
+	for q := 0; q < sizeSecretMessage; q++ {
+		secretMessageSlice := secret_message[q:sizeSecretMessage]
+
+		// append the secret message to the injected text
+		plainText := plainTextInjectionMessage + secretMessageSlice
+
+		// encrypt via AES-ECB
+		cypherText := encryptionOracle(plainText, randomKey, true)
+
+		// store the first block of the cypher text
+		matchBlock := cypherText[0:16]
+
+		byteMap := map[string][]byte{}
+
+		// iterate through ASCII byte space and inject an ASCII byte into the last position
+		// of the first 15 bytes of the first block
+		for i := 0; i < 256; i++ {
+			injectedByte := string(i)
+
+			testBlock := plainTextInjectionMessage + injectedByte
+
+			check := encryptionOracle(testBlock, randomKey, true)
+
+			firstBlock := check[0:16]
+
+			byteMap[string(firstBlock)] = []byte(injectedByte)
+		}
+
+		// match the last byte of the first block - this will be the first byte of the secret message
+		decryptedByte := byteMap[string(matchBlock)]
+
+		// append the the decrypted byte
+		decryptedMessageBytes = append(decryptedMessageBytes, decryptedByte...)
+	}
+	fmt.Println(string(decryptedMessageBytes))
 }
 
 ////////////// -----------------------------------------------------
@@ -158,11 +281,40 @@ func challenge11() {
 
 //////////////------------------------------------------------------
 
-func encryptionOracle(input string) (output []byte) {
-	prependedBytes := prependRandomBytes([]byte(input))
-	appendedBytes := appendRandomBytes(prependedBytes)
+func encryptionOracle(input string, key []byte, withPKCS bool) (output []byte) {
+	if withPKCS {
+		paddedBytes := padWithPKCS7([]byte(input), 16)
+		output = EncryptECB(paddedBytes, key, 16)
+	} else {
+		nullBytes := make([]byte, 16)
+
+		inputBytes := []byte(input)
+		fmt.Println("Input bytes: ", inputBytes)
+
+		lenInput := len(input)
+		fmt.Println("Len Input:", lenInput)
+
+		for i := 0; i < lenInput; i++ {
+			nullBytes[i] = inputBytes[i]
+		}
+
+		fmt.Println("Null Padded bytes: ", nullBytes)
+
+		output = EncryptECB(nullBytes, key, 16)
+		fmt.Println("Encrypted Null Padded bytes:", output)
+	}
+
+	return output
+}
+
+func randomEncryptionOracle(input string) (output []byte) {
+	// prependedBytes := prependRandomBytes([]byte(input))
+	// appendedBytes := appendRandomBytes(prependedBytes)
 
 	blockSize := 16
+
+	// paddedBytes := padBytes(appendedBytes, blockSize)
+	paddedBytes := padWithPKCS7([]byte(input), blockSize)
 
 	randomKey := createRandomKey(blockSize)
 	coinFlip := randInt(1, 2)
@@ -170,10 +322,10 @@ func encryptionOracle(input string) (output []byte) {
 	if coinFlip == 1 {
 		fmt.Println("Chose CBC")
 		iv := createRandomIV(blockSize)
-		output = EncryptCBC(appendedBytes, randomKey, iv, blockSize)
+		output = EncryptCBC(paddedBytes, randomKey, iv, blockSize)
 	} else {
 		fmt.Println("Chose ECB")
-		output = EncryptECB(appendedBytes, randomKey, blockSize)
+		output = EncryptECB(paddedBytes, randomKey, blockSize)
 	}
 
 	return output
@@ -407,8 +559,46 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 	return output
 }
 
+func padWithPKCS7(input []byte, blockLength int) []byte {
+	// fmt.Println("original bytes: ", input)
+
+	output := padBytes(input, blockLength)
+	// fmt.Println("padded bytes: ", output)
+
+	lastByteIdx := len(output)
+	// fmt.Println("Last byte idx: ", lastByteIdx)
+
+	if lastByteIdx == 0 {
+		log.Fatal("0-length input string.")
+	}
+
+	// get value of last byte
+	lastByte := output[lastByteIdx-1 : lastByteIdx]
+	// fmt.Println("Pad Byte: ", lastByte)
+
+	// pad value will never be 0x0
+	padValues := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}
+
+	// fmt.Println("Contains Pad value: ", bytes.Contains(padValues, []byte(lastByte)))
+
+	if !bytes.Contains(padValues, []byte(lastByte)) {
+		extraBytes := make([]byte, blockLength)
+
+		// pad out to 0x16
+		for i := 0; i < blockLength; i++ {
+			extraBytes[i] = 0x10
+		}
+
+		output = append(output, extraBytes...)
+	}
+
+	// fmt.Println("Padded PKCS7 bytes: ", output)
+
+	return output
+}
+
 func padBytes(input []byte, blockLength int) []byte {
-	// implements PKCS#7 padding
+	// does not FULLY IMPLEMENT PKCS7 padding. only pads out the last block.
 	inputLen := len(input)
 
 	remainder := inputLen % blockLength
@@ -473,6 +663,7 @@ func createBlocks(decodedBytes []byte, keySize int) [][]byte {
 }
 
 func detectECB(encryptedBytes []byte) bool {
+	// this detects ECB by looking for common lines.
 	r := bytes.NewReader(encryptedBytes)
 
 	// create hashmap that will reference ALL lines that are AES-128 ECB encrypted

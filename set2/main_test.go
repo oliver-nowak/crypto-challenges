@@ -6,11 +6,45 @@ import (
 	"testing"
 )
 
+func Test_Padding_1(t *testing.T) {
+	input := []byte("CAFEBABE")
+	blockLength := 16
+	expectedByteLen := 16
+	expectedResult := []byte{67, 65, 70, 69, 66, 65, 66, 69, 8, 8, 8, 8, 8, 8, 8, 8}
+
+	result := padBytes(input, blockLength)
+
+	if len(result) != expectedByteLen {
+		t.Error("Result does not equal expected value.")
+	}
+
+	if !bytes.Equal(result, expectedResult) {
+		t.Error("Result bytes do not equal expected bytes")
+	}
+}
+
 func Test_PKCS7Padding_1(t *testing.T) {
 	input := []byte("CAFEBABE")
 	blockLength := 16
 	expectedByteLen := 16
 	expectedResult := []byte{67, 65, 70, 69, 66, 65, 66, 69, 8, 8, 8, 8, 8, 8, 8, 8}
+
+	result := padWithPKCS7(input, blockLength)
+
+	if len(result) != expectedByteLen {
+		t.Error("Result does not equal expected value.")
+	}
+
+	if !bytes.Equal(result, expectedResult) {
+		t.Error("Result bytes do not equal expected bytes")
+	}
+}
+
+func Test_Padding_2(t *testing.T) {
+	input := []byte("CAFE")
+	blockLength := 8
+	expectedByteLen := 8
+	expectedResult := []byte{67, 65, 70, 69, 4, 4, 4, 4}
 
 	result := padBytes(input, blockLength)
 
@@ -29,7 +63,7 @@ func Test_PKCS7Padding_2(t *testing.T) {
 	expectedByteLen := 8
 	expectedResult := []byte{67, 65, 70, 69, 4, 4, 4, 4}
 
-	result := padBytes(input, blockLength)
+	result := padWithPKCS7(input, blockLength)
 
 	if len(result) != expectedByteLen {
 		t.Error("Result does not equal expected value.")
@@ -40,11 +74,45 @@ func Test_PKCS7Padding_2(t *testing.T) {
 	}
 }
 
+func Test_Padding_3(t *testing.T) {
+	input := []byte("FOO")
+	blockLength := 8
+	expectedByteLen := 8
+	expectedResult := []byte{70, 79, 79, 5, 5, 5, 5, 5}
+
+	result := padBytes(input, blockLength)
+
+	if len(result) != expectedByteLen {
+		t.Error("Result does not equal expected value.")
+	}
+
+	if !bytes.Equal(result, expectedResult) {
+		t.Error("Result bytes do not equal expected bytes.")
+	}
+}
+
 func Test_PKCS7Padding_3(t *testing.T) {
 	input := []byte("FOO")
 	blockLength := 8
 	expectedByteLen := 8
 	expectedResult := []byte{70, 79, 79, 5, 5, 5, 5, 5}
+
+	result := padWithPKCS7(input, blockLength)
+
+	if len(result) != expectedByteLen {
+		t.Error("Result does not equal expected value.")
+	}
+
+	if !bytes.Equal(result, expectedResult) {
+		t.Error("Result bytes do not equal expected bytes.")
+	}
+}
+
+func Test_Padding_4(t *testing.T) {
+	input := []byte("DEADMEATCAF") // 11 bytes
+	blockLength := 8
+	expectedByteLen := 16
+	expectedResult := []byte{68, 69, 65, 68, 77, 69, 65, 84, 67, 65, 70, 5, 5, 5, 5, 5}
 
 	result := padBytes(input, blockLength)
 
@@ -63,6 +131,23 @@ func Test_PKCS7Padding_4(t *testing.T) {
 	expectedByteLen := 16
 	expectedResult := []byte{68, 69, 65, 68, 77, 69, 65, 84, 67, 65, 70, 5, 5, 5, 5, 5}
 
+	result := padWithPKCS7(input, blockLength)
+
+	if len(result) != expectedByteLen {
+		t.Error("Result does not equal expected value.")
+	}
+
+	if !bytes.Equal(result, expectedResult) {
+		t.Error("Result bytes do not equal expected bytes.")
+	}
+}
+
+func Test_Padding_5(t *testing.T) {
+	input := []byte("DEADMEATCAFEBABE") // 16 bytes
+	blockLength := 16
+	expectedByteLen := 16
+	expectedResult := []byte{68, 69, 65, 68, 77, 69, 65, 84, 67, 65, 70, 69, 66, 65, 66, 69}
+
 	result := padBytes(input, blockLength)
 
 	if len(result) != expectedByteLen {
@@ -77,10 +162,10 @@ func Test_PKCS7Padding_4(t *testing.T) {
 func Test_PKCS7Padding_5(t *testing.T) {
 	input := []byte("DEADMEATCAFEBABE") // 16 bytes
 	blockLength := 16
-	expectedByteLen := 16
-	expectedResult := []byte{68, 69, 65, 68, 77, 69, 65, 84, 67, 65, 70, 69, 66, 65, 66, 69}
+	expectedByteLen := 32
+	expectedResult := []byte{68, 69, 65, 68, 77, 69, 65, 84, 67, 65, 70, 69, 66, 65, 66, 69, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16, 16}
 
-	result := padBytes(input, blockLength)
+	result := padWithPKCS7(input, blockLength)
 
 	if len(result) != expectedByteLen {
 		t.Error("Result does not equal expected value.")
