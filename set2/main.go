@@ -11,6 +11,8 @@ import (
 	ioutil "io/ioutil"
 	"log"
 	"math/rand"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -22,7 +24,8 @@ func main() {
 	// challenge09()
 	// challenge10()
 	// challenge11()
-	challenge12()
+	// challenge12()
+	challenge13()
 }
 
 func challenge09() {
@@ -46,13 +49,10 @@ func challenge09() {
 
 	input := "YELLOW SUBMARINE"
 
-	// bytes := padBytes([]byte(input), 20)
-
-	// output := string(bytes)
-	// fmt.Println(output)
-
 	padded := padWithPKCS7([]byte(input), 16)
-	fmt.Println("Padded: ", padded)
+
+	fmt.Println("Padded (bytes) : ", padded)
+	fmt.Println("Padded (string): ", string(padded))
 }
 
 func challenge10() {
@@ -215,50 +215,124 @@ func challenge12() {
 
 	// secret_message := "secret message"
 
-	sizeSecretMessage := len(secret_message)
+	decryptedText := encryptInjectDecryptECB(secret_message, randomKey)
+	fmt.Println(decryptedText)
+}
 
-	// declare an uninitialized byte-array to append decrypted bytes
-	var decryptedMessageBytes []byte
+func challenge13() {
+	// ------------------------------------------------------------
 
-	// create a plain text injection message of size BLOCK less 1 byte
-	plainTextInjectionMessage := "AAAAAAAAAAAAAAA"
+	// 13. ECB cut-and-paste
 
-	// iterate through bytes of secret message, creating a slice of the secret message byte array for plain text injection
-	for q := 0; q < sizeSecretMessage; q++ {
-		secretMessageSlice := secret_message[q:sizeSecretMessage]
+	// Write a k=v parsing routine, as if for a structured cookie. The
+	// routine should take:
 
-		// append the secret message to the injected text
-		plainText := plainTextInjectionMessage + secretMessageSlice
+	//    foo=bar&baz=qux&zap=zazzle
 
-		// encrypt via AES-ECB
-		cypherText := encryptionOracle(plainText, randomKey, true)
+	// and produce:
 
-		// store the first block of the cypher text
-		matchBlock := cypherText[0:16]
+	//   {
+	//     foo: 'bar',
+	//     baz: 'qux',
+	//     zap: 'zazzle'
+	//   }
 
-		byteMap := map[string][]byte{}
+	// (you know, the object; I don't care if you convert it to JSON).
 
-		// iterate through ASCII byte space and inject an ASCII byte into the last position
-		// of the first 15 bytes of the first block
-		for i := 0; i < 256; i++ {
-			injectedByte := string(i)
+	// Now write a function that encodes a user profile in that format, given
+	// an email address. You should have something like:
 
-			testBlock := plainTextInjectionMessage + injectedByte
+	//   profile_for("foo@bar.com")
 
-			check := encryptionOracle(testBlock, randomKey, true)
+	// and it should produce:
 
-			firstBlock := check[0:16]
+	//   {
+	//     email: 'foo@bar.com',
+	//     uid: 10,
+	//     role: 'user'
+	//   }
 
-			byteMap[string(firstBlock)] = []byte(injectedByte)
-		}
+	// encoded as:
 
-		// match the last byte of the first block - this will be the first byte of the secret message
-		decryptedByte := byteMap[string(matchBlock)]
+	//   email=foo@bar.com&uid=10&role=user
 
-		// append the the decrypted byte
-		decryptedMessageBytes = append(decryptedMessageBytes, decryptedByte...)
-	}
-	fmt.Println(string(decryptedMessageBytes))
+	// Your "profile_for" function should NOT allow encoding metacharacters
+	// (& and =). Eat them, quote them, whatever you want to do, but don't
+	// let people set their email address to "foo@bar.com&role=admin".
+
+	// Now, two more easy functions. Generate a random AES key, then:
+
+	//  (a) Encrypt the encoded user profile under the key; "provide" that
+	//  to the "attacker".
+
+	//  (b) Decrypt the encoded user profile and parse it.
+
+	// Using only the user input to profile_for() (as an oracle to generate
+	// "valid" ciphertexts) and the ciphertexts themselves, make a role=admin
+	// profile.
+
+	// ANSWER
+	// ------------------------------------------------------------------------
+	// 	original profile (no null padding at 65bytes)
+	// email=onowak1234admin00000000000@olivernowak123.com&uid=10&role=user
+
+	// original profile (with null padding at 80bytes)
+	// email=onowak1234admin00000000000@olivernowak123.com&uid=10&role=user000000000000
+
+	// crafted profile (with 16byte boundary)
+	// email=onowak1234 admin00000000000 @olivernowak123. com&uid=10&role= user000000000000
+
+	// crafted profile (collapsed)
+	// email=onowak1234@olivernowak123.com&uid=10&role=admin00000000000
+
+	// payload (16byte block)
+	// admin00000000000
+
+	// ------------------------------------------------------------
+	fmt.Println("Challenge 13")
+
+	// create global random key
+	blockSize := 16
+	randomKey := createRandomKey(blockSize)
+
+	// create user profile param request
+	profile := profileFor("onowak1234admin" + "           " + "@olivernowak123.com")
+	fmt.Println("Profile: ", profile)
+
+	// (client-side) encrypt via AES-ECB under some random key
+	cypherText := EncryptECB([]byte(profile), randomKey, blockSize, true)
+
+	// (server-side) decrypt request and handle
+	plainTextBytes := DecryptECB(cypherText, randomKey, blockSize)
+	fmt.Println("Decrypted ORIGINAL Profile      : ", string(plainTextBytes))
+
+	// divide cypher text into 16byte blocks so we can rearrange.
+	blocks := createBlocks(cypherText, blockSize)
+
+	// declare new storage for rearranged bytes
+	var craftedCypherBytes []byte
+
+	// craft the new payload with the 'admin' byte block copied over the 'user' byte block
+	craftedCypherBytes = append(craftedCypherBytes, blocks[0]...)
+	craftedCypherBytes = append(craftedCypherBytes, blocks[2]...)
+	craftedCypherBytes = append(craftedCypherBytes, blocks[3]...)
+	craftedCypherBytes = append(craftedCypherBytes, blocks[1]...)
+
+	// (server-side) decrypt malicious bytes
+	params := DecryptECB(craftedCypherBytes, randomKey, blockSize)
+	fmt.Println("Decrypted HACKED Profile        : ", string(params))
+
+	// parse KV's for mass-assignment
+	user, _ := url.ParseQuery(string(params))
+
+	userEmail := user.Get("email")
+	fmt.Println("Email: ", userEmail)
+
+	userUID := user.Get("uid")
+	fmt.Println("UID: ", userUID)
+
+	userRole := user.Get("role")
+	fmt.Println("Role: ", userRole)
 }
 
 ////////////// -----------------------------------------------------
@@ -281,40 +355,79 @@ func challenge12() {
 
 //////////////------------------------------------------------------
 
-func encryptionOracle(input string, key []byte, withPKCS bool) (output []byte) {
-	if withPKCS {
-		paddedBytes := padWithPKCS7([]byte(input), 16)
-		output = EncryptECB(paddedBytes, key, 16)
-	} else {
-		nullBytes := make([]byte, 16)
+func profileFor(email string) (profile string) {
+	cleanedEmailString := strings.Replace(email, "&", "", -1)
+	cleanedEmailString = strings.Replace(cleanedEmailString, "=", "", -1)
 
-		inputBytes := []byte(input)
-		fmt.Println("Input bytes: ", inputBytes)
+	profile = "email=" + cleanedEmailString + "&" + "uid=10&role=user"
 
-		lenInput := len(input)
-		fmt.Println("Len Input:", lenInput)
+	return profile
+}
 
-		for i := 0; i < lenInput; i++ {
-			nullBytes[i] = inputBytes[i]
+func encryptInjectDecryptECB(secret_message string, randomKey []byte) (decryptedText string) {
+	sizeSecretMessage := len(secret_message)
+
+	// declare an uninitialized byte-array to append decrypted bytes
+	var decryptedMessageBytes []byte
+
+	// create a plain text injection message of size BLOCK less 1 byte
+	plainTextInjectionMessage := "AAAAAAAAAAAAAAA"
+
+	// iterate through bytes of secret message, creating a slice of the secret message byte array for plain text injection
+	for q := 0; q < sizeSecretMessage; q++ {
+		secretMessageSlice := secret_message[q:sizeSecretMessage]
+
+		// append the secret message to the injected text
+		plainText := plainTextInjectionMessage + secretMessageSlice
+
+		// encrypt via AES-ECB
+		cypherText := EncryptECB([]byte(plainText), randomKey, 16, true)
+
+		// store the first block of the cypher text
+		matchBlock := cypherText[0:16]
+
+		byteMap := map[string][]byte{}
+
+		// iterate through ASCII byte space and inject an ASCII byte into the last position
+		// of the first 15 bytes of the first block
+		for i := 0; i < 256; i++ {
+			injectedByte := string(i)
+
+			testBlock := plainTextInjectionMessage + injectedByte
+
+			check := EncryptECB([]byte(testBlock), randomKey, 16, true)
+
+			firstBlock := check[0:16]
+
+			byteMap[string(firstBlock)] = []byte(injectedByte)
 		}
 
-		fmt.Println("Null Padded bytes: ", nullBytes)
+		// match the last byte of the first block - this will be the first byte of the secret message
+		decryptedByte := byteMap[string(matchBlock)]
 
-		output = EncryptECB(nullBytes, key, 16)
-		fmt.Println("Encrypted Null Padded bytes:", output)
+		// append the the decrypted byte
+		decryptedMessageBytes = append(decryptedMessageBytes, decryptedByte...)
 	}
+
+	decryptedText = string(decryptedMessageBytes)
+
+	return decryptedText
+}
+
+func encryptECBWithPKCS7(input string, key []byte) (output []byte) {
+	paddedBytes := padWithPKCS7([]byte(input), 16)
+	output = EncryptECB(paddedBytes, key, 16, true)
 
 	return output
 }
 
 func randomEncryptionOracle(input string) (output []byte) {
-	// prependedBytes := prependRandomBytes([]byte(input))
-	// appendedBytes := appendRandomBytes(prependedBytes)
+	prependedBytes := prependRandomBytes([]byte(input))
+	appendedBytes := appendRandomBytes(prependedBytes)
 
 	blockSize := 16
 
-	// paddedBytes := padBytes(appendedBytes, blockSize)
-	paddedBytes := padWithPKCS7([]byte(input), blockSize)
+	paddedBytes := padWithPKCS7(appendedBytes, blockSize)
 
 	randomKey := createRandomKey(blockSize)
 	coinFlip := randInt(1, 2)
@@ -325,7 +438,7 @@ func randomEncryptionOracle(input string) (output []byte) {
 		output = EncryptCBC(paddedBytes, randomKey, iv, blockSize)
 	} else {
 		fmt.Println("Chose ECB")
-		output = EncryptECB(paddedBytes, randomKey, blockSize)
+		output = EncryptECB(paddedBytes, randomKey, blockSize, true)
 	}
 
 	return output
@@ -414,16 +527,27 @@ func XORBytes(a []byte, b []byte) (xorBytes []byte, err error) {
 	return xorBytes, err
 }
 
-func EncryptECB(input []byte, key []byte, blockSize int) (output []byte) {
-	// fmt.Println("input size: ", len(input))
-	// fmt.Println("blockSize: ", blockSize)
+func EncryptECB(input []byte, key []byte, blockSize int, withNullPad bool) (output []byte) {
+	// fmt.Println("Len input: ", len(input))
+
+	if withNullPad {
+		nullPaddingSizeInBytes := blockSize - (len(input) % blockSize)
+		// fmt.Println("Null Padding Size in Bytes: ", nullPaddingSizeInBytes)
+
+		nullPadding := make([]byte, nullPaddingSizeInBytes)
+		// fmt.Println("Null Padding bytes: ", nullPadding)
+
+		input = append(input, nullPadding...)
+		// fmt.Println("Input Bytes with Null Padding: ", input)
+
+		// fmt.Println("Len Input: ", len(input))
+	}
 
 	numBlocks := len(input) / blockSize
-	// fmt.Println("numBlocks to iterate: ", numBlocks)
+	// fmt.Println("Num blocks: ", numBlocks)
 
 	// allocate storage for encrypted bytes
 	output = make([]byte, len(input))
-	// fmt.Println("len of output bytes: ", len(output))
 
 	// initialize new AES ECB cipher
 	block, _ := aes.NewCipher(key)
@@ -487,6 +611,7 @@ func EncryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 
 func DecryptECB(input []byte, key []byte, blockSize int) (output []byte) {
 	numBlocks := len(input) / blockSize
+	// fmt.Println("Num Blocks: ", numBlocks)
 
 	// allocate storage for encrypted bytes
 	output = make([]byte, len(input))

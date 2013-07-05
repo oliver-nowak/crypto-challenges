@@ -180,10 +180,10 @@ func Test_EncryptECB_1(t *testing.T) {
 	testInput := []byte("This is a test message for test.") // 32 bytes
 	key := []byte("YELLOW SUBMARINE")
 	blockSize := 16
-	expectedBytes := []byte{89, 245, 143, 60, 140, 62, 115, 150, 176, 229, 133, 179, 184, 50, 45, 56, 205, 111, 243, 102, 37, 238, 93, 84, 198, 195, 120, 77, 212, 151, 173, 187}
-	expectedByteLen := 32
+	expectedBytes := []byte{89, 245, 143, 60, 140, 62, 115, 150, 176, 229, 133, 179, 184, 50, 45, 56, 205, 111, 243, 102, 37, 238, 93, 84, 198, 195, 120, 77, 212, 151, 173, 187, 118, 209, 203, 75, 175, 162, 70, 226, 227, 175, 3, 93, 108, 19, 195, 114}
+	expectedByteLen := 48
 
-	result := EncryptECB(testInput, key, blockSize)
+	result := EncryptECB(testInput, key, blockSize, true)
 
 	if len(result) != expectedByteLen {
 		t.Error("Result does not equal expected value.")
