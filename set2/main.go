@@ -26,7 +26,8 @@ func main() {
 	// challenge11()
 	// challenge12()
 	// challenge13()
-	challenge14()
+	// challenge14()
+	challenge15()
 }
 
 func challenge09() {
@@ -387,6 +388,78 @@ func challenge14() {
 	fmt.Println(decryptedText)
 }
 
+func challenge15() {
+	// ------------------------------------------------------------
+
+	// 15. PKCS#7 padding validation
+
+	// Write a function that takes a plaintext, determines if it has valid
+	// PKCS#7 padding, and strips the padding off.
+
+	// The string:
+
+	//     "ICE ICE BABY\x04\x04\x04\x04"
+
+	// has valid padding, and produces the result "ICE ICE BABY".
+
+	// The string:
+
+	//     "ICE ICE BABY\x05\x05\x05\x05"
+
+	// does not have valid padding, nor does:
+
+	//      "ICE ICE BABY\x01\x02\x03\x04"
+
+	// If you are writing in a language with exceptions, like Python or Ruby,
+	// make your function throw an exception on bad padding.
+
+	// ------------------------------------------------------------
+	fmt.Println("Challenge 15")
+
+	inputA := "ICE ICE BABY\x04\x04\x04\x04"
+	fmt.Println("inputA: ", inputA)
+
+	strippedInput, isValid := validatePadding(inputA)
+	fmt.Println("inputA isValid? ", isValid)
+	if isValid {
+		fmt.Println("inputA Stripped Input: ", strippedInput)
+	}
+
+	fmt.Println("---")
+
+	inputB := "ICE ICE BABY\x05\x05\x05\x05"
+	fmt.Println("inputB: ", inputB)
+
+	strippedInput, isValid = validatePadding(inputB)
+	fmt.Println("inputB isValid? ", isValid)
+	if isValid {
+		fmt.Println("inputB Stripped Input: ", strippedInput)
+	}
+
+	fmt.Println("---")
+
+	inputC := "ICE ICE BABY\x01\x02\x03\x04"
+	fmt.Println("inputC: ", inputC)
+
+	strippedInput, isValid = validatePadding(inputC)
+	fmt.Println("inputC isValid? ", isValid)
+	if isValid {
+		fmt.Println("inputC Stripped Input: ", strippedInput)
+	}
+
+	fmt.Println("---")
+
+	inputD := "YELLOW SUBMARINE\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10\x10"
+	fmt.Println("inputD: ", inputD)
+
+	strippedInput, isValid = validatePadding(inputD)
+	fmt.Println("inputD isValid? ", isValid)
+	if isValid {
+		fmt.Println("inputD Stripped Input: ", strippedInput)
+	}
+
+}
+
 ////////////// -----------------------------------------------------
 
 //////////////------------------------------------------------------
@@ -406,6 +479,45 @@ func challenge14() {
 //////////////------------------------------------------------------
 
 //////////////------------------------------------------------------
+
+func validatePadding(input string) (strippedInput string, ok bool) {
+	inputBytes := []byte(input)
+	strippedInputBytes := []byte{}
+
+	var padCount = 0
+	var isInit = false
+
+	for i := 0; i < len(inputBytes); i++ {
+		charByte := inputBytes[i]
+
+		// validate the current byte and initialize pad stripping if PKCS byte
+		if !isInit && isPKCSPadByte(charByte) {
+			padCount = int(charByte)
+			isInit = true
+		} else if !isInit {
+			strippedInputBytes = append(strippedInputBytes, inputBytes[i])
+		}
+
+		// decrement the pad byte counter (based on the value of the pad byte type)
+		if isInit && isPKCSPadByte(charByte) {
+			padCount--
+		}
+	}
+
+	// check pad count and return stripped input
+	if padCount == 0 {
+		strippedInput = string(strippedInputBytes)
+		return strippedInput, true
+	}
+
+	return strippedInput, false
+}
+
+func isPKCSPadByte(token byte) bool {
+	pkcsBytes := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF, 0x10}
+	isByte := bytes.Contains(pkcsBytes, []byte{token})
+	return isByte
+}
 
 func getInjectionMessage(blockSize int, sizeOfChunk int) (injectionMessage string) {
 	sizeOfInjectionMessage := (blockSize - (sizeOfChunk % blockSize)) - 1
