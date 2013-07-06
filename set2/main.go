@@ -25,7 +25,8 @@ func main() {
 	// challenge10()
 	// challenge11()
 	// challenge12()
-	challenge13()
+	// challenge13()
+	challenge14()
 }
 
 func challenge09() {
@@ -215,7 +216,10 @@ func challenge12() {
 
 	// secret_message := "secret message"
 
-	decryptedText := encryptInjectDecryptECB(secret_message, randomKey)
+	// create a plain text injection message of size BLOCK less 1 byte
+	injection_message := "AAAAAAAAAAAAAAA"
+
+	decryptedText := encryptInjectDecryptECB(injection_message, secret_message, randomKey)
 	fmt.Println(decryptedText)
 }
 
@@ -335,6 +339,54 @@ func challenge13() {
 	fmt.Println("Role: ", userRole)
 }
 
+func challenge14() {
+	// ------------------------------------------------------------
+
+	// 14. Byte-at-a-time ECB decryption, Partial control version
+
+	// Take your oracle function from #12. Now generate a random count of
+	// random bytes and prepend this string to every plaintext. You are now
+	// doing:
+
+	//   AES-128-ECB(random-prefix || attacker-controlled || target-bytes, random-key)
+
+	// Same goal: decrypt the target-bytes.
+
+	// What's harder about doing this?
+
+	// How would you overcome that obstacle? The hint is: you're using
+	// all the tools you already have; no crazy math is required.
+
+	// Think about the words "STIMULUS" and "RESPONSE".
+
+	// // ------------------------------------------------------------
+	fmt.Println("Challenge 14")
+
+	// create global random key
+	blockSize := 16
+	randomKey := createRandomKey(blockSize)
+
+	// create random bytes
+	randomBytes := getRandomBytes(5, 10)
+	fmt.Println("Random Bytes: ", randomBytes)
+
+	// load secret message
+	secretMessageFile := "./resources/secret_message.txt"
+	secretMessageBytes := decodeFile(secretMessageFile)
+	secret_message := string(secretMessageBytes)
+
+	// create a plain text injection message of size BLOCK less size RANDOMBYTES and less 1 byte
+	injectionMessage := getInjectionMessage(blockSize, len(randomBytes))
+	fmt.Println("Resizable Injection Message: ", injectionMessage)
+
+	// append random bytes
+	injectionPayload := string(randomBytes) + injectionMessage
+
+	// decrypt
+	decryptedText := encryptInjectDecryptECB(injectionPayload, secret_message, randomKey)
+	fmt.Println(decryptedText)
+}
+
 ////////////// -----------------------------------------------------
 
 //////////////------------------------------------------------------
@@ -355,6 +407,16 @@ func challenge13() {
 
 //////////////------------------------------------------------------
 
+func getInjectionMessage(blockSize int, sizeOfChunk int) (injectionMessage string) {
+	sizeOfInjectionMessage := (blockSize - (sizeOfChunk % blockSize)) - 1
+
+	for i := 0; i < sizeOfInjectionMessage; i++ {
+		injectionMessage += "A"
+	}
+
+	return injectionMessage
+}
+
 func profileFor(email string) (profile string) {
 	cleanedEmailString := strings.Replace(email, "&", "", -1)
 	cleanedEmailString = strings.Replace(cleanedEmailString, "=", "", -1)
@@ -364,21 +426,18 @@ func profileFor(email string) (profile string) {
 	return profile
 }
 
-func encryptInjectDecryptECB(secret_message string, randomKey []byte) (decryptedText string) {
+func encryptInjectDecryptECB(injection_message string, secret_message string, randomKey []byte) (decryptedText string) {
 	sizeSecretMessage := len(secret_message)
 
 	// declare an uninitialized byte-array to append decrypted bytes
 	var decryptedMessageBytes []byte
-
-	// create a plain text injection message of size BLOCK less 1 byte
-	plainTextInjectionMessage := "AAAAAAAAAAAAAAA"
 
 	// iterate through bytes of secret message, creating a slice of the secret message byte array for plain text injection
 	for q := 0; q < sizeSecretMessage; q++ {
 		secretMessageSlice := secret_message[q:sizeSecretMessage]
 
 		// append the secret message to the injected text
-		plainText := plainTextInjectionMessage + secretMessageSlice
+		plainText := injection_message + secretMessageSlice
 
 		// encrypt via AES-ECB
 		cypherText := EncryptECB([]byte(plainText), randomKey, 16, true)
@@ -393,7 +452,7 @@ func encryptInjectDecryptECB(secret_message string, randomKey []byte) (decrypted
 		for i := 0; i < 256; i++ {
 			injectedByte := string(i)
 
-			testBlock := plainTextInjectionMessage + injectedByte
+			testBlock := injection_message + injectedByte
 
 			check := EncryptECB([]byte(testBlock), randomKey, 16, true)
 
@@ -444,30 +503,30 @@ func randomEncryptionOracle(input string) (output []byte) {
 	return output
 }
 
-func prependRandomBytes(input []byte) []byte {
+func getRandomBytes(min int64, max int64) (randomBytes []byte) {
 	nBeforeBytes := randInt(5, 10)
-	prependBytes := make([]byte, nBeforeBytes)
+	randomBytes = make([]byte, nBeforeBytes)
 
 	for i := 0; i < nBeforeBytes; i++ {
-		prependBytes[i] = byte(rand.Int())
+		randomBytes[i] = byte(rand.Int())
 	}
-
-	prependBytes = append(prependBytes, input...)
-
-	return prependBytes
+	return randomBytes
 }
 
-func appendRandomBytes(input []byte) []byte {
-	nAfterBytes := randInt(5, 10)
+func prependRandomBytes(input []byte) (prependedBytes []byte) {
+	randomBytes := getRandomBytes(5, 10)
 
-	appendBytes := make([]byte, nAfterBytes)
-	for i := 0; i < nAfterBytes; i++ {
-		appendBytes[i] = byte(rand.Int())
-	}
+	prependedBytes = append(randomBytes, input...)
 
-	appendBytes = append(input, appendBytes...)
+	return prependedBytes
+}
 
-	return appendBytes
+func appendRandomBytes(input []byte) (appendedBytes []byte) {
+	randomBytes := getRandomBytes(5, 10)
+
+	appendedBytes = append(input, randomBytes...)
+
+	return appendedBytes
 }
 
 func createRandomIV(size int) []byte {
