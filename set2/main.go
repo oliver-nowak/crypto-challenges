@@ -27,7 +27,8 @@ func main() {
 	// challenge12()
 	// challenge13()
 	// challenge14()
-	challenge15()
+	// challenge15()
+	challenge16()
 }
 
 func challenge09() {
@@ -458,6 +459,127 @@ func challenge15() {
 		fmt.Println("inputD Stripped Input: ", strippedInput)
 	}
 
+	fmt.Println("---")
+
+	inputE := "YOU\x0D\x0D\x0D\x0D\x0D\x0D\x0D\x0D\x0D\x0D\x0D\x0D\x0D"
+	fmt.Println("inputE: ", inputE)
+
+	strippedInput, isValid = validatePadding(inputE)
+	fmt.Println("inputE isValid? ", isValid)
+	if isValid {
+		fmt.Println("inputE Stripped Input: ", strippedInput)
+	}
+
+	fmt.Println("---")
+
+	inputF := padWithPKCS7([]byte("YOU"), 16)
+	fmt.Println("inputF: ", inputF)
+
+	strippedInput, isValid = validatePadding(string(inputF))
+	fmt.Println("inputF isValid? ", isValid)
+	if isValid {
+		fmt.Println("inputF Stripped Input: ", strippedInput)
+	}
+}
+
+func challenge16() {
+	// ------------------------------------------------------------
+
+	// 16. CBC bit flipping
+
+	// Generate a random AES key.
+
+	// Combine your padding code and CBC code to write two functions.
+
+	// The first function should take an arbitrary input string, prepend the
+	// string:
+	//         "comment1=cooking%20MCs;userdata="
+	// and append the string:
+	//     ";comment2=%20like%20a%20pound%20of%20bacon"
+
+	// The function should quote out the ";" and "=" characters.
+
+	// The function should then pad out the input to the 16-byte AES block
+	// length and encrypt it under the random AES key.
+
+	// The second function should decrypt the string and look for the
+	// characters ";admin=true;" (or, equivalently, decrypt, split the stringb
+	// on ;, convert each resulting string into 2-tuples, and look for the
+	// "admin" tuple. Return true or false based on whether the string exists.
+
+	// If you've written the first function properly, it should not be
+	// possible to provide user input to it that will generate the string the
+	// second function is looking for.
+
+	// Instead, modify the ciphertext (without knowledge of the AES key) to
+	// accomplish this.
+
+	// You're relying on the fact that in CBC mode, a 1-bit error in a
+	// ciphertext block:
+
+	// * Completely scrambles the block the error occurs in
+
+	// * Produces the identical 1-bit error (/edit) in the next ciphertext
+	//  block.
+
+	// Before you implement this attack, answer this question: why does CBC
+	// mode have this property?
+
+	// ------------------------------------------------------------
+
+	fmt.Println("Challenge 16")
+
+	// create global random key
+	blockSize := 16
+	randomKey := createRandomKey(blockSize)
+
+	// create CBC IV
+	iv := createRandomIV(blockSize)
+
+	cypherBytes := paddedEncryptionOracle(";admin=true;", randomKey, iv)
+
+	adminToken := ";admin=true;"
+	idx := 16
+	hasAdminPriv := false
+	adminString := ""
+
+	for i := 0; i < len(adminToken); i++ {
+		currentToken := string(adminToken[i])
+
+		currIdx := idx + i
+
+		for q := 0; q < 256; q++ {
+			cypherBytes[i] = byte(q)
+
+			strippedInput, isAdmin := checkAdminAccess(cypherBytes, randomKey, iv)
+			if isAdmin {
+				hasAdminPriv = true
+				adminString = strippedInput
+				break
+			}
+
+			isReady := strings.Contains(strippedInput[currIdx:currIdx+1], currentToken)
+			if isReady {
+				break
+			}
+		}
+		if hasAdminPriv {
+			break
+		}
+	}
+
+	if hasAdminPriv {
+		fmt.Println("CBC Plain-text : ", adminString)
+		fmt.Println("GOT ADMIN PRIVILEGES. WOULD YOU LIKE TO PLAY A GAME?")
+	}
+	// fmt.Println("isAdmin? ", isAdmin)
+	// fmt.Println("Result: ", strippedInput)
+
+	// blocks := createBlocks([]byte(strippedInput), blockSize)
+	// secondBlock := blocks[1]
+
+	// isReady := strings.Contains(string(secondBlock), "e")
+	// fmt.Println("Is Ready ?", isReady)
 }
 
 ////////////// -----------------------------------------------------
@@ -480,41 +602,112 @@ func challenge15() {
 
 //////////////------------------------------------------------------
 
-func validatePadding(input string) (strippedInput string, ok bool) {
-	inputBytes := []byte(input)
-	strippedInputBytes := []byte{}
+func checkAdminAccess(cypherBytes []byte, randomKey []byte, iv []byte) (strippedInput string, isAdmin bool) {
+	// fmt.Println(">>> Cypher Bytes: ", cypherBytes)
 
-	var padCount = 0
-	var isInit = false
+	adminToken := ";admin=true;"
 
-	for i := 0; i < len(inputBytes); i++ {
-		charByte := inputBytes[i]
+	plainTextBytes := DecryptCBC(cypherBytes, randomKey, iv, 16)
+	// fmt.Println(">>> Decrypted Plain Text Bytes: ", plainTextBytes)
 
-		// validate the current byte and initialize pad stripping if PKCS byte
-		if !isInit && isPKCSPadByte(charByte) {
-			padCount = int(charByte)
-			isInit = true
-		} else if !isInit {
-			strippedInputBytes = append(strippedInputBytes, inputBytes[i])
-		}
+	plainText := string(plainTextBytes)
 
-		// decrement the pad byte counter (based on the value of the pad byte type)
-		if isInit && isPKCSPadByte(charByte) {
-			padCount--
-		}
+	// fmt.Println(">>> Plain Text: ", plainText)
+	// fmt.Println(">>> Plain bytes: ", plainTextBytes)
+
+	strippedInput, ok := validatePadding(plainText)
+	if !ok {
+		log.Fatal("Invalid Padding.")
 	}
 
-	// check pad count and return stripped input
-	if padCount == 0 {
-		strippedInput = string(strippedInputBytes)
-		return strippedInput, true
+	// fmt.Println(">>> Stripped Text : ", strippedInput)
+
+	// unescapedInput, _ := url.QueryUnescape(strippedInput)
+	// fmt.Println(">>> Unescaped Text: ", unescapedInput)
+
+	// isAdmin = strings.Contains(unescapedInput, adminToken)
+
+	isAdmin = strings.Contains(strippedInput, adminToken)
+
+	return strippedInput, isAdmin
+}
+
+func paddedEncryptionOracle(attackString string, randomKey []byte, iv []byte) (cypherBytes []byte) {
+	prependString := "comment1=cooking%20MCs;userdata="
+	appendString := ";comment2=%20like%20a%20pound%20of%20bacon"
+
+	payload := prependString + attackString + appendString
+	fmt.Println("Payload        : ", payload)
+
+	encodedPayload := url.QueryEscape(payload)
+	fmt.Println("Encoded Payload: ", encodedPayload)
+
+	// fmt.Println("Encoded Payload bytes: ", []byte(encodedPayload))
+
+	cypherBytes = encryptCBCWithPKCS7(encodedPayload, randomKey, iv)
+
+	return cypherBytes
+}
+
+func validatePadding(input string) (strippedInput string, ok bool) {
+	inputBytes := []byte(input)
+	// fmt.Println("Input Bytes: ", inputBytes)
+
+	inputBlocks := createBlocks(inputBytes, 16)
+	// fmt.Println("Blocks: ", inputBlocks)
+
+	numBlocks := len(inputBlocks)
+	// fmt.Println("Num Blocks: ", numBlocks)
+
+	lastBlock := inputBlocks[numBlocks-1]
+	// fmt.Println("Last block: ", lastBlock)
+
+	lastByte := lastBlock[15]
+	// fmt.Println("Last Byte: ", lastByte)
+
+	// pad index lookup table
+	padIdxTable := []int{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0}
+
+	padValue := int(lastByte)
+	// fmt.Println("Pad Value: ", padValue)
+
+	// create padded byte slice for comparison
+	padBytes := bytes.Repeat([]byte{lastByte}, int(lastByte))
+	// fmt.Println("Pad Bytes: ", padBytes)
+
+	// find out the index of the padded byte slice
+	startPadIdx := bytes.Index(lastBlock, padBytes)
+	// fmt.Println("Start Pad Idx: ", startPadIdx)
+
+	padIdx := padIdxTable[padValue]
+
+	// compare index with lookup table
+	if padIdx == startPadIdx {
+		// fmt.Println("VALID")
+		ok = true
+	}
+
+	// strip the padding
+	if ok {
+		lastBlock = lastBlock[0:startPadIdx]
+		// fmt.Println("STRIPPED: ", string(lastBlock))
+
+		inputBlocks[numBlocks-1] = lastBlock
+
+		for i := 0; i < numBlocks; i++ {
+			strippedInput += string(inputBlocks[i])
+		}
+
+		// fmt.Println(strippedInput)
+
+		return strippedInput, ok
 	}
 
 	return strippedInput, false
 }
 
 func isPKCSPadByte(token byte) bool {
-	pkcsBytes := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF, 0x10}
+	pkcsBytes := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 	isByte := bytes.Contains(pkcsBytes, []byte{token})
 	return isByte
 }
@@ -588,6 +781,18 @@ func encryptInjectDecryptECB(injection_message string, secret_message string, ra
 func encryptECBWithPKCS7(input string, key []byte) (output []byte) {
 	paddedBytes := padWithPKCS7([]byte(input), 16)
 	output = EncryptECB(paddedBytes, key, 16, true)
+
+	return output
+}
+
+func encryptCBCWithPKCS7(input string, key []byte, iv []byte) (output []byte) {
+	// fmt.Println("Len Unpadded Bytes: ", len(input))
+
+	paddedBytes := padWithPKCS7([]byte(input), 16)
+	// fmt.Println("Padded Bytes: ", paddedBytes)
+	// fmt.Println("Len Padded: ", len(paddedBytes))
+
+	output = EncryptCBC(paddedBytes, key, iv, 16)
 
 	return output
 }
@@ -827,6 +1032,8 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 			// decrypt: input
 			block.Decrypt(decryptResult, input[begin:end])
 
+			// fmt.Println("Decrypt Result: ", decryptResult, i)
+
 			// XOR decrypted result with IV
 			xorResult, err = XORBytes(decryptResult, iv)
 			if err != nil {
@@ -840,6 +1047,7 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 
 			// decrypt current block
 			block.Decrypt(decryptResult, input[begin:end])
+			// fmt.Println("Decrypt Result: ", decryptResult, i)
 
 			// XOR the previous encrypt bytes with current decrypted result
 			xorResult, err = XORBytes(decryptResult, input[prevBegin:prevEnd])
