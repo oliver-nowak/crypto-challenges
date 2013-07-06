@@ -21,14 +21,37 @@ func main() {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	// challenge09()
-	// challenge10()
-	// challenge11()
-	// challenge12()
-	// challenge13()
-	// challenge14()
-	// challenge15()
+	challenge09()
+
+	fmt.Println("-------------------------------------------------------------")
+
+	challenge10()
+
+	fmt.Println("-------------------------------------------------------------")
+
+	challenge11()
+
+	fmt.Println("-------------------------------------------------------------")
+
+	challenge12()
+
+	fmt.Println("-------------------------------------------------------------")
+
+	challenge13()
+
+	fmt.Println("-------------------------------------------------------------")
+
+	challenge14()
+
+	fmt.Println("-------------------------------------------------------------")
+
+	challenge15()
+
+	fmt.Println("-------------------------------------------------------------")
+
 	challenge16()
+
+	fmt.Println("-------------------------------------------------------------")
 }
 
 func challenge09() {
@@ -50,7 +73,7 @@ func challenge09() {
 	// ------------------------------------------------------------
 	fmt.Println("Challenge 09")
 
-	input := "YELLOW SUBMARINE"
+	input := "WAXTRAX RECORDS"
 
 	padded := padWithPKCS7([]byte(input), 16)
 
@@ -536,21 +559,35 @@ func challenge16() {
 	// create CBC IV
 	iv := createRandomIV(blockSize)
 
-	cypherBytes := paddedEncryptionOracle(";admin=true;", randomKey, iv)
+	// get encrypted bytes which include
+	cypherBytes := paddedEncryptionOracle("Skinny Puppy", randomKey, iv)
 
+	// this is the token string we want to audit during our bit-flip operation
 	adminToken := ";admin=true;"
+
+	// 0-indexed scalar for first byte in the second block (which is the 'target' block)
 	idx := 16
+
+	// set flag for bit-flip operation success
 	hasAdminPriv := false
+
+	// store the successful bitflipped string here
 	adminString := ""
 
+	// iterate through the tokens of the adminToken string
+	// for each token, scan the ASCII byte space to find the bit-flipped equivalent
+	// once its found, move on to the next token.
 	for i := 0; i < len(adminToken); i++ {
 		currentToken := string(adminToken[i])
 
+		// current byte index of the second block
 		currIdx := idx + i
 
+		// iterate through the ASCII byte space and flip the corresponding bit
 		for q := 0; q < 256; q++ {
 			cypherBytes[i] = byte(q)
 
+			// send the request to the server and check results
 			strippedInput, isAdmin := checkAdminAccess(cypherBytes, randomKey, iv)
 			if isAdmin {
 				hasAdminPriv = true
@@ -558,11 +595,14 @@ func challenge16() {
 				break
 			}
 
+			// if the bit-flip operation is successful for a particular token, move on.
 			isReady := strings.Contains(strippedInput[currIdx:currIdx+1], currentToken)
 			if isReady {
 				break
 			}
 		}
+
+		// exit if we have admin privileges - no need to continue.
 		if hasAdminPriv {
 			break
 		}
@@ -572,14 +612,6 @@ func challenge16() {
 		fmt.Println("CBC Plain-text : ", adminString)
 		fmt.Println("GOT ADMIN PRIVILEGES. WOULD YOU LIKE TO PLAY A GAME?")
 	}
-	// fmt.Println("isAdmin? ", isAdmin)
-	// fmt.Println("Result: ", strippedInput)
-
-	// blocks := createBlocks([]byte(strippedInput), blockSize)
-	// secondBlock := blocks[1]
-
-	// isReady := strings.Contains(string(secondBlock), "e")
-	// fmt.Println("Is Ready ?", isReady)
 }
 
 ////////////// -----------------------------------------------------
@@ -603,29 +635,16 @@ func challenge16() {
 //////////////------------------------------------------------------
 
 func checkAdminAccess(cypherBytes []byte, randomKey []byte, iv []byte) (strippedInput string, isAdmin bool) {
-	// fmt.Println(">>> Cypher Bytes: ", cypherBytes)
-
 	adminToken := ";admin=true;"
 
 	plainTextBytes := DecryptCBC(cypherBytes, randomKey, iv, 16)
-	// fmt.Println(">>> Decrypted Plain Text Bytes: ", plainTextBytes)
 
 	plainText := string(plainTextBytes)
-
-	// fmt.Println(">>> Plain Text: ", plainText)
-	// fmt.Println(">>> Plain bytes: ", plainTextBytes)
 
 	strippedInput, ok := validatePadding(plainText)
 	if !ok {
 		log.Fatal("Invalid Padding.")
 	}
-
-	// fmt.Println(">>> Stripped Text : ", strippedInput)
-
-	// unescapedInput, _ := url.QueryUnescape(strippedInput)
-	// fmt.Println(">>> Unescaped Text: ", unescapedInput)
-
-	// isAdmin = strings.Contains(unescapedInput, adminToken)
 
 	isAdmin = strings.Contains(strippedInput, adminToken)
 
@@ -642,8 +661,6 @@ func paddedEncryptionOracle(attackString string, randomKey []byte, iv []byte) (c
 	encodedPayload := url.QueryEscape(payload)
 	fmt.Println("Encoded Payload: ", encodedPayload)
 
-	// fmt.Println("Encoded Payload bytes: ", []byte(encodedPayload))
-
 	cypherBytes = encryptCBCWithPKCS7(encodedPayload, randomKey, iv)
 
 	return cypherBytes
@@ -651,54 +668,42 @@ func paddedEncryptionOracle(attackString string, randomKey []byte, iv []byte) (c
 
 func validatePadding(input string) (strippedInput string, ok bool) {
 	inputBytes := []byte(input)
-	// fmt.Println("Input Bytes: ", inputBytes)
 
 	inputBlocks := createBlocks(inputBytes, 16)
-	// fmt.Println("Blocks: ", inputBlocks)
 
 	numBlocks := len(inputBlocks)
-	// fmt.Println("Num Blocks: ", numBlocks)
 
 	lastBlock := inputBlocks[numBlocks-1]
-	// fmt.Println("Last block: ", lastBlock)
 
 	lastByte := lastBlock[15]
-	// fmt.Println("Last Byte: ", lastByte)
 
 	// pad index lookup table
 	padIdxTable := []int{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0}
 
 	padValue := int(lastByte)
-	// fmt.Println("Pad Value: ", padValue)
 
 	// create padded byte slice for comparison
 	padBytes := bytes.Repeat([]byte{lastByte}, int(lastByte))
-	// fmt.Println("Pad Bytes: ", padBytes)
 
 	// find out the index of the padded byte slice
 	startPadIdx := bytes.Index(lastBlock, padBytes)
-	// fmt.Println("Start Pad Idx: ", startPadIdx)
 
 	padIdx := padIdxTable[padValue]
 
 	// compare index with lookup table
 	if padIdx == startPadIdx {
-		// fmt.Println("VALID")
 		ok = true
 	}
 
 	// strip the padding
 	if ok {
 		lastBlock = lastBlock[0:startPadIdx]
-		// fmt.Println("STRIPPED: ", string(lastBlock))
 
 		inputBlocks[numBlocks-1] = lastBlock
 
 		for i := 0; i < numBlocks; i++ {
 			strippedInput += string(inputBlocks[i])
 		}
-
-		// fmt.Println(strippedInput)
 
 		return strippedInput, ok
 	}
@@ -786,12 +791,7 @@ func encryptECBWithPKCS7(input string, key []byte) (output []byte) {
 }
 
 func encryptCBCWithPKCS7(input string, key []byte, iv []byte) (output []byte) {
-	// fmt.Println("Len Unpadded Bytes: ", len(input))
-
 	paddedBytes := padWithPKCS7([]byte(input), 16)
-	// fmt.Println("Padded Bytes: ", paddedBytes)
-	// fmt.Println("Len Padded: ", len(paddedBytes))
-
 	output = EncryptCBC(paddedBytes, key, iv, 16)
 
 	return output
@@ -904,23 +904,15 @@ func XORBytes(a []byte, b []byte) (xorBytes []byte, err error) {
 }
 
 func EncryptECB(input []byte, key []byte, blockSize int, withNullPad bool) (output []byte) {
-	// fmt.Println("Len input: ", len(input))
-
 	if withNullPad {
 		nullPaddingSizeInBytes := blockSize - (len(input) % blockSize)
-		// fmt.Println("Null Padding Size in Bytes: ", nullPaddingSizeInBytes)
 
 		nullPadding := make([]byte, nullPaddingSizeInBytes)
-		// fmt.Println("Null Padding bytes: ", nullPadding)
 
 		input = append(input, nullPadding...)
-		// fmt.Println("Input Bytes with Null Padding: ", input)
-
-		// fmt.Println("Len Input: ", len(input))
 	}
 
 	numBlocks := len(input) / blockSize
-	// fmt.Println("Num blocks: ", numBlocks)
 
 	// allocate storage for encrypted bytes
 	output = make([]byte, len(input))
@@ -987,7 +979,6 @@ func EncryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 
 func DecryptECB(input []byte, key []byte, blockSize int) (output []byte) {
 	numBlocks := len(input) / blockSize
-	// fmt.Println("Num Blocks: ", numBlocks)
 
 	// allocate storage for encrypted bytes
 	output = make([]byte, len(input))
@@ -1032,8 +1023,6 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 			// decrypt: input
 			block.Decrypt(decryptResult, input[begin:end])
 
-			// fmt.Println("Decrypt Result: ", decryptResult, i)
-
 			// XOR decrypted result with IV
 			xorResult, err = XORBytes(decryptResult, iv)
 			if err != nil {
@@ -1047,7 +1036,6 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 
 			// decrypt current block
 			block.Decrypt(decryptResult, input[begin:end])
-			// fmt.Println("Decrypt Result: ", decryptResult, i)
 
 			// XOR the previous encrypt bytes with current decrypted result
 			xorResult, err = XORBytes(decryptResult, input[prevBegin:prevEnd])
@@ -1064,13 +1052,9 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 }
 
 func padWithPKCS7(input []byte, blockLength int) []byte {
-	// fmt.Println("original bytes: ", input)
-
 	output := padBytes(input, blockLength)
-	// fmt.Println("padded bytes: ", output)
 
 	lastByteIdx := len(output)
-	// fmt.Println("Last byte idx: ", lastByteIdx)
 
 	if lastByteIdx == 0 {
 		log.Fatal("0-length input string.")
@@ -1078,12 +1062,9 @@ func padWithPKCS7(input []byte, blockLength int) []byte {
 
 	// get value of last byte
 	lastByte := output[lastByteIdx-1 : lastByteIdx]
-	// fmt.Println("Pad Byte: ", lastByte)
 
 	// pad value will never be 0x0
 	padValues := []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F}
-
-	// fmt.Println("Contains Pad value: ", bytes.Contains(padValues, []byte(lastByte)))
 
 	if !bytes.Contains(padValues, []byte(lastByte)) {
 		extraBytes := make([]byte, blockLength)
@@ -1095,8 +1076,6 @@ func padWithPKCS7(input []byte, blockLength int) []byte {
 
 		output = append(output, extraBytes...)
 	}
-
-	// fmt.Println("Padded PKCS7 bytes: ", output)
 
 	return output
 }
@@ -1181,7 +1160,7 @@ func detectECB(encryptedBytes []byte) bool {
 	// read each line
 	for scanner.Scan() {
 		txt := scanner.Text()
-		// fmt.Println(txt)
+
 		lineBytes := []byte(txt)
 
 		// split blocks according to block size (16 for AES-128)
