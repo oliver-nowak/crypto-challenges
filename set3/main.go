@@ -307,6 +307,13 @@ func challenge19() {
 	xorResult := string(xorBytes)
 
 	fmt.Println(xorResult)
+
+	// IDEA #2
+	// automate the iteration of cipher block pages from first block to last block.
+	// scan for keys as above, and decrypt the pages
+
+	// IDEA #3
+	// break the ECB encryption of the encrypted keystream bytes for the Nth block in a page
 }
 
 ////////////// -----------------------------------------------------
@@ -704,6 +711,8 @@ func padBytes(input []byte, blockLength int) []byte {
 }
 
 func validate(input string) (strippedInput string, ok bool) {
+	// NOTE: this is an improved implementation than the one found in set2
+
 	inputBytes := []byte(input)
 	// fmt.Println("Input bytes: ", inputBytes)
 
