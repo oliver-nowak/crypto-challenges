@@ -99,158 +99,11 @@ func challenge17() {
 	// ------------------------------------------------------------
 	fmt.Println("Challenge 17")
 
+	// get a message that has been encrypted by a random key & IV
 	encryptedMessage, iv := GetEncryptedMessage()
-	fmt.Println("IV: ", iv)
-	fmt.Println("Encrypted Bytes: ", encryptedMessage)
 
-	// blocks := createBlocks(encryptedMessage, 16)
-	// fmt.Println("Blocks: ", blocks)
-
-	// lenMessage := len(encryptedMessage)
-	// fmt.Println("Len of message: ", lenMessage)
-
-	// numBlocks := len(blocks)
-	// fmt.Println("Num Blocks: ", numBlocks)
-
-	// currentPadValue := 0x01
-	// for i := numBlocks - 1; i >= 1; i-- {
-	// 	fmt.Println("i: ", i)
-
-	// 	block := blocks[i]
-	// 	fmt.Println("Block: ", block)
-
-	// 	xorBlock := make([]byte, 16)
-
-	// 	msg := append(xorBlock, block...)
-	// 	fmt.Println("Msg: ", msg)
-	// 	endIndex := 15
-	// 	keyBytes := make([]byte, 16)
-
-	// 	for q := 15; q >= 14; q-- {
-	// 		fmt.Println("Q: ", q)
-
-	// 		for a := endIndex + 1; a < 16; a++ {
-	// 			fmt.Println(">>>", a, currentPadValue)
-	// 			msg[a] = keyBytes[a] ^ byte(currentPadValue)
-	// 			fmt.Println(">>> ", msg)
-	// 		}
-
-	// 		for z := 0; z < 256; z++ {
-
-	// 			msg[endIndex] = byte(z)
-
-	// 			// fmt.Println(msg, endIndex)
-
-	// 			isValid := IsPaddingValid(msg, randomKey, iv)
-
-	// 			if isValid {
-	// 				fmt.Println("End IDX: ", endIndex)
-
-	// 				fmt.Println("VALID @ ", z)
-	// 				plainTextByte := (byte(z) ^ byte(currentPadValue)) ^ blocks[0][q]
-
-	// 				keyBytes[endIndex] = byte(z)
-	// 				fmt.Println("Key Bytes: ", keyBytes)
-
-	// 				for a := endIndex + 1; a < 16; a++ {
-	// 					fmt.Println("+++", a)
-	// 					msg[a] = 0 //keyBytes[a]
-	// 				}
-	// 				fmt.Println("E Bytes: ", msg)
-	// 				fmt.Println("Plaintext Byte: ", plainTextByte)
-	// 				endIndex--
-
-	// 				currentPadValue++
-
-	// 				break
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	//     currentPadValue = 0x01
-	// for i = 15; i >= 0; i--
-	//     plainText[i] = (foundByte ^ currentPadValue) ^ cypherByte[i]
-	//     currentPadValue++
-	currentPadValue := 0x01
-	plainTextBytes := make([]byte, 16)
-	xorBytes := make([]byte, 16)
-	endIdx := 15
-
-	// 205
-	// 150
-	// 195
-	// 063
-
-	//  tamperedByteValue = currentPadValue ^ plainTextValue ^ cipherByteValue
-
-	cipherBytes := make([]byte, 16)
-	copy(cipherBytes, encryptedMessage)
-
-	fmt.Println("Copied bytes: ", cipherBytes)
-
-	copy(encryptedMessage[:16], xorBytes)
-	fmt.Println(encryptedMessage)
-
-	for q := 15; q >= 0; q-- {
-
-		// cipherByte := encryptedMessage[q]
-		fmt.Println("END IDX: ", endIdx)
-		fmt.Println("Q      : ", q)
-		fmt.Println("Pad Value: ", currentPadValue)
-
-		for i := 0; i < 256; i++ {
-
-			if q < 15 {
-				for zzz := 15; zzz > q; zzz-- {
-					tByte := byte(currentPadValue) ^ plainTextBytes[zzz] ^ cipherBytes[zzz]
-					fmt.Println("ZZZ: ", zzz)
-					fmt.Println("PT: ", plainTextBytes[zzz])
-					fmt.Println("CB: ", cipherBytes[zzz])
-					fmt.Println("TByte: ", tByte)
-
-					encryptedMessage[zzz] = tByte
-				}
-			}
-
-			tamperedByte := byte(i)
-			encryptedMessage[q] = tamperedByte
-
-			// encryptedMessage[15] = 200
-			// encryptedMessage[14] = 146
-			// encryptedMessage[13] = 196
-			// encryptedMessage[12] = byte(i)
-
-			isValid := IsPaddingValid(encryptedMessage, randomKey, iv)
-
-			if isValid {
-				fmt.Println("Tampered Bytes [1]: ", encryptedMessage)
-				fmt.Println("VALID on idx: ", i)
-
-				fmt.Println("TamperedByte: ", tamperedByte)
-				fmt.Println("CipherBytes: ", cipherBytes)
-
-				plainTextByte := byte(currentPadValue) ^ tamperedByte ^ cipherBytes[q]
-				fmt.Println("Plain text: ", plainTextByte)
-
-				encryptedMessage[q] = cipherBytes[q]
-				plainTextBytes[q] = plainTextByte
-
-				currentPadValue++
-
-				endIdx--
-
-				fmt.Println("----")
-				break
-			}
-
-		}
-	}
-
-	fmt.Println("Plain Text Bytes: ", plainTextBytes)
-	fmt.Println("Plain Text: ", string(plainTextBytes))
-	// fmt.Println("XOR Bytes: ", xorBytes)
-
+	plainText := BreakCBC(encryptedMessage, iv)
+	fmt.Println("Decrypted Text: ", plainText)
 }
 
 ////////////// -----------------------------------------------------
@@ -293,19 +146,122 @@ func challenge17() {
 
 //////////////------------------------------------------------------
 
+func BreakCBC(encryptedMessage []byte, iv []byte) (plainText string) {
+	// break up the message into BLOCKSIZE blocks
+	blocks := createBlocks(encryptedMessage, 16)
+
+	// count the number of blocks for use later in an iterator
+	numBlocks := len(blocks)
+
+	// set up the plain text storage
+	plainText = ""
+
+	// iterate through the blocks, last to first.
+	// for the last block, use the IV as the 'cipher text'
+	for x := numBlocks - 1; x >= 0; x-- {
+		// initialize the padding value; we start with 0x01
+		currentPadValue := 0x01
+
+		// initialize a block of bytes to store this block's plain text bytes
+		plainTextBlock := make([]byte, 16)
+
+		// initialize a block of bytes to store this block's XOR bytes.
+		// this will be used to calculate the correct XOR value in oreder to get the padding value we want.
+		xorBytes := make([]byte, 16)
+
+		// initialize a block of bytes to store the cipher bytes of the previous cipher block (or IV)
+		cipherBytes := make([]byte, 16)
+
+		// check if this is the last block; if it is, copy the IV as the cipher block.
+		// otherwise, use the previous cipher block.
+		if x > 0 {
+			copy(cipherBytes, blocks[x-1])
+		} else {
+			copy(cipherBytes, iv)
+		}
+
+		// append the zero'd XOR bytes to the current cipher block
+		// we do this in order to submit the tampered XOR bytes for validation
+		encryptedMessage := append(xorBytes, blocks[x]...)
+
+		// iterate through the BLOCKSIZE space
+		for q := 15; q >= 0; q-- {
+
+			// iterate through the ASCII byte space
+			// we are currently searching for a correct ASCII value that, when XOR'd, will express
+			// the correct padding we are currently looking for as expressed by the currentPadValue variable.
+			for i := 0; i < 256; i++ {
+
+				// after the first decrypted byte, we have to re-calculate the XOR value according to the currentPadValue
+				// we want to express in the encryptedMessage block.
+				// this will iterate through those bytes and recalculate the XOR values.
+				if q < 15 {
+					for zzz := 15; zzz > q; zzz-- {
+						// calculate the XOR value that will express the currentPadValue
+						tByte := byte(currentPadValue) ^ plainTextBlock[zzz] ^ cipherBytes[zzz]
+
+						// copy the XOR value over to the encryptedMessage block as a tampered byte.
+						encryptedMessage[zzz] = tByte
+					}
+
+				}
+
+				// we have recalculated the bytes up to the current encrypted byte we are trying to decrypt in order
+				// to express the correct currentPadValue.
+				// we now copy over the current ASCII byte value into the encryptedMessage at the index position
+				// of the byte we are trying to decrypt. since we are iterating over the entire ASCII space,
+				// at some point the validation will succeed for the currentPadValue.
+				// this will be the byte value we need to calculate the plainText byte value.
+				tamperedByte := byte(i)
+				encryptedMessage[q] = tamperedByte
+
+				// check if the tampered bytes contains valid padding of the currentByteValue
+				isValid := IsPaddingValid(encryptedMessage, randomKey, iv)
+
+				// if the tampered bytes express valid padding, we can then calculate the plainText byte value
+				// and save that in the plainTextBlock byte array.
+				// we will also re-copy the original cipher bytes back to the encryptedMessage in order to reset
+				// the state of the encryptedMessage byte array.
+				// this prepares it for the next iteration in the BLOCK space and ASCII space.
+				if isValid {
+					// calculate the plain text byte according to the following algorithm:
+					// plain text = (Current Pad Value) XOR (Valid ASCII Byte Value) XOR (Cipher Byte Value || IV Byte Value)
+					plainTextByte := byte(currentPadValue) ^ tamperedByte ^ cipherBytes[q]
+
+					// reset the state of the encrypted message
+					encryptedMessage[q] = cipherBytes[q]
+
+					// store the plain text in the byte array
+					plainTextBlock[q] = plainTextByte
+
+					// increment the current pad value
+					currentPadValue++
+
+					break
+				}
+			}
+		}
+
+		plainText = string(plainTextBlock) + plainText
+
+	}
+
+	return plainText
+}
+
 func GetEncryptedMessage() (cipherBytes []byte, iv []byte) {
-	// randomKey = createRandomKey(16)
-	randomKey = []byte("YELLOW SUBMARINE")
+	randomKey = createRandomKey(16)
+	// randomKey = []byte("YELLOW SUBMARINE")
 
-	// iv = createRandomIV(16)
-	iv = []byte("CAFEBABEDEADMEAT")
+	iv = createRandomIV(16)
+	// iv = []byte("CAFEBABEDEADMEAT")
 
-	randString := "Skinny Puppy is really cool..."
-	// randString := GetRandomString()
+	// randString := "Skinny Puppy is really cool..."
+	randString := GetRandomString()
 	// fmt.Println("Random String: ", randString)
 
 	cipherBytes = encryptCBCWithPKCS7(randString, randomKey, iv)
-	fmt.Println("+++ ", cipherBytes)
+	// fmt.Println("+++ ", cipherBytes)
 
 	return cipherBytes, iv
 }
@@ -466,7 +422,7 @@ func padBytes(input []byte, blockLength int) []byte {
 
 func validate(input string) (strippedInput string, ok bool) {
 	inputBytes := []byte(input)
-	fmt.Println("Input bytes: ", inputBytes)
+	// fmt.Println("Input bytes: ", inputBytes)
 
 	lenBytes := len(inputBytes)
 
