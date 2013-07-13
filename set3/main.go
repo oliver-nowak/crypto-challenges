@@ -27,7 +27,8 @@ func main() {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	challenge17()
+	// challenge17()
+	challenge18()
 }
 
 func challenge17() {
@@ -106,6 +107,82 @@ func challenge17() {
 	fmt.Println("Decrypted Text: ", plainText)
 }
 
+func challenge18() {
+	// ------------------------------------------------------------
+
+	// 18. Implement CTR mode
+
+	// The string:
+
+	//     L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ==
+
+	// decrypts to something approximating English in CTR mode, which is an
+	// AES block cipher mode that turns AES into a stream cipher, with the
+	// following parameters:
+
+	//           key=YELLOW SUBMARINE
+	//           nonce=0
+	//           format=64 bit unsigned little endian nonce,
+	//                  64 bit little endian block count (byte count / 16)
+
+	// CTR mode is very simple.
+
+	// Instead of encrypting the plaintext, CTR mode encrypts a running
+	// counter, producing a 16 byte block of keystream, which is XOR'd
+	// against the plaintext.
+
+	// For instance, for the first 16 bytes of a message with these
+	// parameters:
+
+	//     keystream = AES("YELLOW SUBMARINE",
+	//                     "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00")
+
+	// for the next 16 bytes:
+
+	//     keystream = AES("YELLOW SUBMARINE",
+	//                     "\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00")
+
+	// and then:
+
+	//     keystream = AES("YELLOW SUBMARINE",
+	//                     "\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00")
+
+	// CTR mode does not require padding; when you run out of plaintext, you
+	// just stop XOR'ing keystream and stop generating keystream.
+
+	// Decryption is identical to encryption. Generate the same keystream,
+	// XOR, and recover the plaintext.
+
+	// Decrypt the string at the top of this function, then use your CTR
+	// function to encrypt and decrypt other things.
+
+	// ------------------------------------------------------------
+	fmt.Println("Challenge 18")
+
+	key := []byte("YELLOW SUBMARINE")
+	nonce := "\x00\x00\x00\x00\x00\x00\x00\x00"
+
+	encodedCipherBytes := "L77na/nrFsKvynd6HzOoG7GHTLXsTVu9qvY/2syLXzhPweyyMTJULu/6/kXX0KSvoOLSFQ=="
+
+	cipherText := DecodeBase64String(encodedCipherBytes)
+	fmt.Println("Encrypted Decoded Text [0]: ", cipherText)
+
+	plainText := DecryptCTR([]byte(cipherText), key, nonce)
+	fmt.Println("Decrypted Plain Text [0]: ", plainText)
+
+	cipherText = EncryptCTR("Waxtrax Records was awesome.", key, nonce)
+	fmt.Println("Encrypted Plain Text [1]: ", cipherText)
+
+	plainText = DecryptCTR([]byte(cipherText), key, nonce)
+	fmt.Println("Decrypted Plain Text [1]: ", plainText)
+
+	cipherText = EncryptCTR("Frontline Assembly @ Tactical Neural Implant", key, nonce)
+	fmt.Println("Encrypted Plain Text [2]: ", cipherText)
+
+	plainText = DecryptCTR([]byte(cipherText), key, nonce)
+	fmt.Println("Decrypted Plain Text [2]: ", plainText)
+}
+
 ////////////// -----------------------------------------------------
 
 //////////////------------------------------------------------------
@@ -157,7 +234,7 @@ func BreakCBC(encryptedMessage []byte, iv []byte) (plainText string) {
 	plainText = ""
 
 	// iterate through the blocks, last to first.
-	// for the last block, use the IV as the 'cipher text'
+	// for the first ordinal block (last in the iteration), use the IV as the 'cipher text'
 	for x := numBlocks - 1; x >= 0; x-- {
 		// initialize the padding value; we start with 0x01
 		currentPadValue := 0x01
@@ -172,7 +249,7 @@ func BreakCBC(encryptedMessage []byte, iv []byte) (plainText string) {
 		// initialize a block of bytes to store the cipher bytes of the previous cipher block (or IV)
 		cipherBytes := make([]byte, 16)
 
-		// check if this is the last block; if it is, copy the IV as the cipher block.
+		// check if this is the first ordinal block; if it is, copy the IV as the cipher block.
 		// otherwise, use the previous cipher block.
 		if x > 0 {
 			copy(cipherBytes, blocks[x-1])
@@ -284,6 +361,23 @@ func IsPaddingValid(encryptedMessage []byte, key []byte, iv []byte) bool {
 	// }
 
 	return ok
+}
+
+func DecodeBase64String(encodedString string) (decodedString string) {
+	encodedStringBytes := []byte(encodedString)
+
+	decodedBytes := make([]byte, len(encodedStringBytes))
+
+	n, err := base64.StdEncoding.Decode(decodedBytes, encodedStringBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	decodedBytes = decodedBytes[:n]
+
+	decodedString = string(decodedBytes)
+
+	return decodedString
 }
 
 func GetRandomString() string {
@@ -455,69 +549,19 @@ func validate(input string) (strippedInput string, ok bool) {
 	return strippedInput, ok
 }
 
-// func validatePadding(input string) (strippedInput string, ok bool) {
-// 	// there is something wrong with this validation - use VALIDATE above
-// 	inputBytes := []byte(input)
-
-// 	inputBlocks := createBlocks(inputBytes, 16)
-
-// 	numBlocks := len(inputBlocks)
-// 	// fmt.Println("Num Blocks: ", numBlocks)
-
-// 	lastBlock := inputBlocks[numBlocks-1]
-
-// 	lastByte := lastBlock[15]
-// 	// fmt.Println("Last Byte: ", lastByte)
-
-// 	// pad index lookup table
-// 	padIdxTable := []int{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0}
-
-// 	padValue := int(lastByte)
-// 	// fmt.Println("Last Value: ", padValue)
-
-// 	// create padded byte slice for comparison
-// 	padBytes := bytes.Repeat([]byte{lastByte}, int(lastByte))
-// 	// fmt.Println("pad Bytes: ", padBytes)
-
-// 	// find out the index of the padded byte slice
-// 	startPadIdx := bytes.Index(lastBlock, padBytes)
-// 	// fmt.Println("Start Pad Idx: ", startPadIdx)
-
-// 	// make sure it found something - otherwise FAIL validation
-// 	if startPadIdx == -1 {
-// 		// fmt.Println("FAIL.")
-// 		ok = false
-// 		return strippedInput, ok
-// 	}
-
-// 	padIdx := padIdxTable[padValue]
-
-// 	// compare index with lookup table
-// 	if padIdx == startPadIdx {
-// 		ok = true
-// 	}
-
-// 	// strip the padding
-// 	if ok {
-// 		lastBlock = lastBlock[0:startPadIdx]
-
-// 		inputBlocks[numBlocks-1] = lastBlock
-
-// 		for i := 0; i < numBlocks; i++ {
-// 			strippedInput += string(inputBlocks[i])
-// 		}
-
-// 		return strippedInput, ok
-// 	}
-
-// 	return strippedInput, false
-// }
-
 func createBlocks(decodedBytes []byte, keySize int) [][]byte {
+	// NOTE: this contains code that adds an additional block if the input is not a multiple of BLOCKSIZE
+
 	// attach a reader for easier reading / seeking
 	bufReader := bytes.NewReader(decodedBytes)
 
 	numBlocks := len(decodedBytes) / keySize
+
+	remainder := len(decodedBytes) % 16
+
+	if remainder > 0 {
+		numBlocks++
+	}
 
 	// allocate a 2D array for holding KEYSIZE arrays
 	blocks := make([][]byte, numBlocks)
@@ -633,4 +677,144 @@ func DecryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []by
 	}
 
 	return output
+}
+
+func EncryptCTR(message string, key []byte, nonce string) (cipherText string) {
+	messageBytes := []byte(message)
+
+	blocks := createBlocks(messageBytes, 16)
+
+	numBlocks := len(blocks)
+
+	// initialize storage for the encrypted message
+	cipherBytes := make([]byte, len(message))
+
+	// initialize the nonce byte array with the passed in nonce prefix values
+	// this will need a 'counter' appended to it before encryption
+	nonceBytes := []byte(nonce)
+
+	// initialize a new AES cipher with the provided key
+	aes, _ := aes.NewCipher(key)
+
+	// initialize the counter 'index'
+	counterIdx := []byte{0x0}
+
+	// initialize the index pointer to the cipherBytes array
+	cipherByteIdx := 0
+
+	// iterate through the blocks of BLOCKSIZE bytes
+	// create the nonce by appending the nonce suffix with the counter
+	// create the keystream by encrypting the nonce
+	// XOR the keystream bytes with the plain text message bytes to create the encrypted output
+	for i := 0; i < numBlocks; i++ {
+		block := blocks[i]
+
+		// initialize the counter suffix containing a 'counter' index value
+		counterPad := []byte("\x00\x00\x00\x00\x00\x00\x00")
+		counter := append(counterIdx, counterPad...)
+
+		// append the nonce prefix with the counter suffix to create the nonce
+		nonceBytes := append(nonceBytes, counter...)
+
+		// initialize keystream storage
+		keystream := make([]byte, 16)
+
+		// create the keystream with the nonce
+		aes.Encrypt(keystream, nonceBytes)
+
+		// iterate through bytes of the current block
+		// if the current byte is not 0x0 (NUL) we will XOR with the keystream byte
+		// at that index value and save in the cipher bytes array
+		for z := 0; z < 16; z++ {
+			// the current byte of this block at index 'z'
+			bByte := block[z]
+
+			// check if the byte is NULL
+			if bByte != 0x0 {
+				// get the keystream byte at index 'z'
+				kByte := keystream[z]
+
+				// XOR for the cipher text byte
+				ctByte := kByte ^ bByte
+
+				// persist the cipher text byte
+				cipherBytes[cipherByteIdx] = ctByte
+
+				// increament the cipher byte array pointer
+				cipherByteIdx++
+			}
+		}
+
+		// increment the nonce counter 'index' scalar
+		counterIdx[0]++
+	}
+
+	cipherText = string(cipherBytes)
+
+	return cipherText
+}
+
+func DecryptCTR(cipherBytes []byte, key []byte, nonce string) (plainText string) {
+	blocks := createBlocks(cipherBytes, 16)
+
+	numBlocks := len(blocks)
+
+	plainText = ""
+
+	// initialize the nonce byte array with the passed in nonce prefix values
+	// this will need a 'counter' appended to it before encryption
+	nonceBytes := []byte(nonce)
+
+	// initialize a new AES cipher with the provided key
+	aes, _ := aes.NewCipher(key)
+
+	// initialize the counter 'index'
+	counterIdx := []byte{0x0}
+
+	// iterate through the blocks of BLOCKSIZE bytes
+	// create the nonce by appending the nonce suffix with the counter
+	// create the keystream by encrypting the nonce
+	// XOR the keystream bytes with the cipher text message bytes to create the plain text output
+	for i := 0; i < numBlocks; i++ {
+		block := blocks[i]
+
+		// initialize the counter suffix containing a 'counter' index value
+		counterPad := []byte("\x00\x00\x00\x00\x00\x00\x00")
+		counter := append(counterIdx, counterPad...)
+
+		// append the nonce prefix with the counter suffix to create the nonce
+		nonceBytes := append(nonceBytes, counter...)
+
+		// initialize keystream storage
+		keystream := make([]byte, 16)
+
+		// create the keystream with the nonce
+		aes.Encrypt(keystream, nonceBytes)
+
+		// iterate through bytes of the current block
+		// if the current byte is not 0x0 (NUL) we will XOR with the keystream byte
+		// at that index value and save in the plain text string
+		for z := 0; z < 16; z++ {
+			// the current byte of this block at index 'z'
+			bByte := block[z]
+
+			// check if the byte is NULL
+			if bByte != 0x0 {
+				// get the keystream byte at index 'z'
+				kByte := keystream[z]
+
+				// XOR for the plain text byte
+				ptByte := bByte ^ kByte
+
+				// persist the plain text byte
+				plainText += string(ptByte)
+			}
+
+		}
+
+		// increment the nonce counter 'index' scalar
+		counterIdx[0]++
+	}
+
+	return plainText
 }
