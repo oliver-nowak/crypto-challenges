@@ -5,15 +5,16 @@ import (
 	"bytes"
 	aes "crypto/aes"
 	"encoding/base64"
-	// hex "encoding/hex"
+	hex "encoding/hex"
 	"errors"
 	"fmt"
-	// ioutil "io/ioutil"
+	ioutil "io/ioutil"
 	"log"
 	"math/rand"
 
 	// "net/url"
-	// "strings"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -28,7 +29,8 @@ func main() {
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	// challenge17()
-	challenge18()
+	// challenge18()
+	challenge19()
 }
 
 func challenge17() {
@@ -183,6 +185,130 @@ func challenge18() {
 	fmt.Println("Decrypted Plain Text [2]: ", plainText)
 }
 
+func challenge19() {
+	// ------------------------------------------------------------
+
+	// 19. Break fixed-nonce CTR mode using substitions
+
+	// Take your CTR encrypt/decrypt function and fix its nonce value to
+	// 0. Generate a random AES key.
+
+	// In SUCCESSIVE ENCRYPTIONS (NOT in one big running CTR stream), encrypt
+	// each line of the base64 decodes of the following,
+	// producing multiple independent ciphertexts:
+
+	//    SSBoYXZlIG1ldCB0aGVtIGF0IGNsb3NlIG9mIGRheQ==
+	//    Q29taW5nIHdpdGggdml2aWQgZmFjZXM=
+	//    RnJvbSBjb3VudGVyIG9yIGRlc2sgYW1vbmcgZ3JleQ==
+	//    RWlnaHRlZW50aC1jZW50dXJ5IGhvdXNlcy4=
+	//    SSBoYXZlIHBhc3NlZCB3aXRoIGEgbm9kIG9mIHRoZSBoZWFk
+	//    T3IgcG9saXRlIG1lYW5pbmdsZXNzIHdvcmRzLA==
+	//    T3IgaGF2ZSBsaW5nZXJlZCBhd2hpbGUgYW5kIHNhaWQ=
+	//    UG9saXRlIG1lYW5pbmdsZXNzIHdvcmRzLA==
+	//    QW5kIHRob3VnaHQgYmVmb3JlIEkgaGFkIGRvbmU=
+	//    T2YgYSBtb2NraW5nIHRhbGUgb3IgYSBnaWJl
+	//    VG8gcGxlYXNlIGEgY29tcGFuaW9u
+	//    QXJvdW5kIHRoZSBmaXJlIGF0IHRoZSBjbHViLA==
+	//    QmVpbmcgY2VydGFpbiB0aGF0IHRoZXkgYW5kIEk=
+	//    QnV0IGxpdmVkIHdoZXJlIG1vdGxleSBpcyB3b3JuOg==
+	//    QWxsIGNoYW5nZWQsIGNoYW5nZWQgdXR0ZXJseTo=
+	//    QSB0ZXJyaWJsZSBiZWF1dHkgaXMgYm9ybi4=
+	//    VGhhdCB3b21hbidzIGRheXMgd2VyZSBzcGVudA==
+	//    SW4gaWdub3JhbnQgZ29vZCB3aWxsLA==
+	//    SGVyIG5pZ2h0cyBpbiBhcmd1bWVudA==
+	//    VW50aWwgaGVyIHZvaWNlIGdyZXcgc2hyaWxsLg==
+	//    V2hhdCB2b2ljZSBtb3JlIHN3ZWV0IHRoYW4gaGVycw==
+	//    V2hlbiB5b3VuZyBhbmQgYmVhdXRpZnVsLA==
+	//    U2hlIHJvZGUgdG8gaGFycmllcnM/
+	//    VGhpcyBtYW4gaGFkIGtlcHQgYSBzY2hvb2w=
+	//    QW5kIHJvZGUgb3VyIHdpbmdlZCBob3JzZS4=
+	//    VGhpcyBvdGhlciBoaXMgaGVscGVyIGFuZCBmcmllbmQ=
+	//    V2FzIGNvbWluZyBpbnRvIGhpcyBmb3JjZTs=
+	//    SGUgbWlnaHQgaGF2ZSB3b24gZmFtZSBpbiB0aGUgZW5kLA==
+	//    U28gc2Vuc2l0aXZlIGhpcyBuYXR1cmUgc2VlbWVkLA==
+	//    U28gZGFyaW5nIGFuZCBzd2VldCBoaXMgdGhvdWdodC4=
+	//    VGhpcyBvdGhlciBtYW4gSSBoYWQgZHJlYW1lZA==
+	//    QSBkcnVua2VuLCB2YWluLWdsb3Jpb3VzIGxvdXQu
+	//    SGUgaGFkIGRvbmUgbW9zdCBiaXR0ZXIgd3Jvbmc=
+	//    VG8gc29tZSB3aG8gYXJlIG5lYXIgbXkgaGVhcnQs
+	//    WWV0IEkgbnVtYmVyIGhpbSBpbiB0aGUgc29uZzs=
+	//    SGUsIHRvbywgaGFzIHJlc2lnbmVkIGhpcyBwYXJ0
+	//    SW4gdGhlIGNhc3VhbCBjb21lZHk7
+	//    SGUsIHRvbywgaGFzIGJlZW4gY2hhbmdlZCBpbiBoaXMgdHVybiw=
+	//    VHJhbnNmb3JtZWQgdXR0ZXJseTo=
+	//    QSB0ZXJyaWJsZSBiZWF1dHkgaXMgYm9ybi4=
+
+	// (This should produce 40 short CTR-encrypted ciphertexts).
+
+	// Because the CTR nonce wasn't randomized for each encryption, each
+	// ciphertext has been encrypted against the same keystream. This is very
+	// bad.
+
+	// Understanding that, like most stream ciphers (including RC4, and
+	// obviously any block cipher run in CTR mode), the actual "encryption"
+	// of a byte of data boils down to a single XOR operation, it should be
+	// plain that:
+
+	//   CIPHERTEXT-BYTE XOR PLAINTEXT-BYTE = KEYSTREAM-BYTE
+
+	// And since the keystream is the same for every ciphertext:
+
+	//   CIPHERTEXT-BYTE XOR KEYSTREAM-BYTE = PLAINTEXT-BYTE (ie, "you don't
+	//   say!")
+
+	// Attack this cryptosystem "Carmen Sandiego" style: guess letters, use
+	// expected English language frequence to validate guesses, catch common
+	// English trigrams, and so on. Points for automating this, but part of
+	// the reason I'm having you do this is that I think this approach is
+	// suboptimal.
+
+	// ------------------------------------------------------------
+	fmt.Println("Challenge 19")
+
+	key := []byte("YELLOW SUBMARINE")
+	nonce := "\x00\x00\x00\x00\x00\x00\x00\x00"
+
+	var firstBlocks []byte
+
+	cipherBook := GetCipherBook(key, nonce)
+
+	// IDEA
+	// divide the cipher book into blocks per 'page'
+	// take the first blocks of every 'page' and concatenate into one large byte array
+	// these blocks have all been XOR'd by the same nonce-ctr keystream.
+	// scan for the key to the first block of the keystream
+	for _, page := range cipherBook {
+		blocks := createBlocks(page, 16)
+
+		// first block of every page
+		block := blocks[0]
+		// append the bytes of each first block to a large byte array
+		firstBlocks = append(firstBlocks, block...)
+	}
+
+	// create the transposed blocks for later scanning the XOR key
+	// slice out all bytes from a particular key position
+	transposedBlocks := createTransposeBlocks(firstBlocks, 16)
+
+	// iterate over t-blocks and look for XOR keys
+	// this should give us the key of the first counter block of the keystream
+	keystream := scanKeys(transposedBlocks)
+
+	srcString := hex.EncodeToString(firstBlocks)
+	hexKeyBytes := hex.EncodeToString(keystream)
+
+	// XOR the bytes from the firstBlocks array to get the plain text
+	xorString, err := xorByKey(srcString, hexKeyBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	xorBytes, _ := hex.DecodeString(xorString)
+	xorResult := string(xorBytes)
+
+	fmt.Println(xorResult)
+}
+
 ////////////// -----------------------------------------------------
 
 //////////////------------------------------------------------------
@@ -222,6 +348,43 @@ func challenge18() {
 //////////////------------------------------------------------------
 
 //////////////------------------------------------------------------
+
+func GetCipherBook(key []byte, nonce string) (cipherBook [][]byte) {
+	resource := "./resources/challenge19.txt"
+
+	content, err := ioutil.ReadFile(resource)
+	if err != nil {
+		log.Fatal(err)
+	}
+	lines := strings.Split(string(content), "\n")
+
+	cipherBook = make([][]byte, 40)
+
+	for idx, line := range lines {
+		// allocate memory at least as large as source size in bytes
+		decodedBytes := make([]byte, len(line))
+
+		// Base64 Decode the bytes
+		n, err := base64.StdEncoding.Decode(decodedBytes, []byte(line))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// trim slice to actual size of data
+		decodedBytes = decodedBytes[:n]
+
+		// cast to string
+		decodedString := string(decodedBytes)
+
+		// encrypt with CTR
+		cipherText := EncryptCTR(decodedString, key, nonce)
+
+		// persist in book
+		cipherBook[idx] = []byte(cipherText)
+	}
+
+	return cipherBook
+}
 
 func BreakCBC(encryptedMessage []byte, iv []byte) (plainText string) {
 	// break up the message into BLOCKSIZE blocks
@@ -453,6 +616,32 @@ func XORBytes(a []byte, b []byte) (xorBytes []byte, err error) {
 	return xorBytes, err
 }
 
+func xorByKey(src string, key string) (xorString string, err error) {
+	// convert string-based hex values into byte array
+	srcBytes, err := hex.DecodeString(src)
+
+	// convert string-based hex values into byte array
+	keyBytes, err := hex.DecodeString(key)
+
+	srcLen := len(srcBytes)
+	keyLen := len(keyBytes)
+
+	// allocate target byte array for XOR operation
+	xorBytes := make([]byte, srcLen)
+
+	idx := 0
+
+	// the XOR operation
+	for i := 0; i < srcLen; i++ {
+		xorBytes[i] = srcBytes[i] ^ keyBytes[idx%keyLen]
+		idx += 1
+	}
+
+	xorString = hex.EncodeToString(xorBytes)
+
+	return xorString, err
+}
+
 func encryptCBCWithPKCS7(input string, key []byte, iv []byte) (output []byte) {
 	paddedBytes := padWithPKCS7([]byte(input), 16)
 	output = EncryptCBC(paddedBytes, key, iv, 16)
@@ -575,6 +764,41 @@ func createBlocks(decodedBytes []byte, keySize int) [][]byte {
 	}
 
 	return blocks
+}
+
+func createTransposeBlocks(decodedBytes []byte, keySize int) [][]byte {
+	// attach a reader for easier reading / seeking
+	bufReader := bytes.NewReader(decodedBytes)
+
+	// size of each transposed key block holding bytes for that particular 'key position' within KEYSIZE
+	sizeOfKeyBlock := len(decodedBytes) / keySize
+
+	// this is the number of un-transposed blocks if you were to chop up bytes into KEYSIZE bins
+	numBlocks := len(decodedBytes) / keySize
+
+	// allocate storage for the transposed blocks
+	transposedBlocks := make([][]byte, keySize)
+	for i := range transposedBlocks {
+		transposedBlocks[i] = make([]byte, sizeOfKeyBlock)
+	}
+
+	// iterate over each key position and grab all of the bytes at that key position
+	for currByte := 0; currByte < keySize; currByte++ {
+		// move reader to beginning byte position (depends on current byte number)
+		bufReader.Seek(int64(currByte), os.SEEK_SET)
+
+		for i := 0; i < numBlocks; i++ {
+			aByte, _ := bufReader.ReadByte()
+
+			// store the byte in the appropriate key block (depends on current byte number)
+			transposedBlocks[currByte][i] = aByte
+
+			// skip to the next byte in the chain
+			bufReader.Seek(int64(keySize-1), os.SEEK_CUR)
+		}
+	}
+
+	return transposedBlocks
 }
 
 func EncryptCBC(input []byte, key []byte, iv []byte, blockSize int) (output []byte) {
@@ -817,4 +1041,163 @@ func DecryptCTR(cipherBytes []byte, key []byte, nonce string) (plainText string)
 	}
 
 	return plainText
+}
+
+func scanKeys(transposedBlocks [][]byte) []byte {
+	// FIX: different from set1; refactor into this implementation
+	keyLen := len(transposedBlocks)
+
+	key := make([]byte, keyLen)
+
+	// iterate through list of transposed blocks and find the topscorer of the XOR scan within each t-block
+	for blockIdx := range transposedBlocks {
+		blockBytes := transposedBlocks[blockIdx]
+
+		hexString := hex.EncodeToString(blockBytes)
+
+		_, _, cypherKey := rotateASCIIChars(hexString)
+		fmt.Println("+++ cypherKey: ", cypherKey)
+
+		// cypherByte, _ := hex.DecodeString(cypherKey)
+		// fmt.Println(">>> cypherByte: ", cypherByte)
+		cypherByte := cypherKey
+
+		// store the first byte in the cypherByte array: **NOTE** it should only have one byte
+		// key[blockIdx] = cypherByte[0]
+		key[blockIdx] = cypherByte
+	}
+
+	return key
+}
+
+func rotateASCIIChars(srcString string) (highestScore float32, cypherResult string, cypherKey byte) {
+	// FIX: different from set1; refactor into this implementation
+	// iterate through visible ASCII char values
+	for i := 0; i < 256; i++ {
+		// convert the ASCII char int value into a byte array
+		cypherTxt := []byte(string(i))
+
+		// convert the byte-array into hex-based string value
+		// cypherString := hex.EncodeToString(cypherTxt)
+
+		// XOR the source string via the cypher string
+		result, err := xorByChar(srcString, byte(i))
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// score the result of the XOR operation
+		score := score(result)
+
+		// update the score
+		if score > highestScore {
+			highestScore = score
+			cypherResult = result
+			cypherKey = byte(i)
+			// cypherKey = cypherString
+			fmt.Println("iii ", i)
+			fmt.Println("src ", srcString)
+			fmt.Println("--- ", cypherTxt)
+			fmt.Println("________________")
+		}
+	}
+
+	return highestScore, cypherResult, cypherKey
+}
+
+func score(srcString string) (score float32) {
+	// iterate through the string and score the chars via an accumulator
+	// this method uses 'etaoinshrdlu' character frequencies for scoring
+	// SEE: http://en.wikipedia.org/wiki/Letter_frequency
+	// SEE: http://www.math.cornell.edu/~mec/2003-2004/cryptography/subs/frequencies.html
+	score = 0.0000
+
+	for i := range srcString {
+
+		txt := string(srcString[i])
+
+		switch txt {
+		// case "\n":
+		// 	score += 7.80
+		// case "'", ",":
+		// 	score += 8.00
+		case " ":
+			score += 13.00
+		case "e", "E":
+			score += 12.702
+		case "t", "T":
+			score += 9.056
+		case "a", "A":
+			score += 8.167
+		case "o", "O":
+			score += 7.507
+		case "i", "I":
+			score += 6.966
+		case "n", "N":
+			score += 6.749
+		case "s", "S":
+			score += 6.327
+		case "h", "H":
+			score += 6.094
+		case "r", "R":
+			score += 5.987
+		case "d", "D":
+			score += 4.253
+		case "l", "L":
+			score += 4.025
+		case "u", "U":
+			score += 2.758
+		case "c", "C":
+			score += 2.782
+		case "m", "M":
+			score += 2.406
+		case "w", "W":
+			score += 2.360
+		case "f", "F":
+			score += 2.228
+		case "g", "G":
+			score += 2.015
+		case "y", "Y":
+			score += 1.974
+		case "p", "P":
+			score += 1.929
+		case "b", "B":
+			score += 1.492
+		case "v", "V":
+			score += 0.978
+		case "k", "K":
+			score += 0.772
+		case "j", "J":
+			score += 0.153
+		case "x", "X":
+			score += 0.150
+		case "q", "Q":
+			score += 0.095
+		case "z", "Z":
+			score += 0.074
+		default:
+			score += 0
+		}
+	}
+
+	return score
+}
+
+func xorByChar(src string, cypher byte) (xorString string, err error) {
+	// FIX: different from set1; refactor into this implementation
+	srcBytes, err := hex.DecodeString(src)
+	// cypherBytes, err := hex.DecodeString(cypher)
+
+	srcLen := len(srcBytes)
+
+	xorBytes := make([]byte, srcLen)
+
+	for i := 0; i < srcLen; i++ {
+		xorBytes[i] = srcBytes[i] ^ cypher //cypherBytes[0]
+	}
+
+	// fmt.Println("xor ", xorBytes)
+	xorString = string(xorBytes)
+
+	return xorString, err
 }
