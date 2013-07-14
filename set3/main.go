@@ -268,9 +268,11 @@ func challenge19() {
 	key := []byte("YELLOW SUBMARINE")
 	nonce := "\x00\x00\x00\x00\x00\x00\x00\x00"
 
-	var firstBlocks []byte
-
 	cipherBook := GetCipherBook(key, nonce)
+
+	var firstBlocks []byte
+	var secondBlocks []byte
+	var thirdBlocks []byte
 
 	// IDEA
 	// divide the cipher book into blocks per 'page'
@@ -281,39 +283,49 @@ func challenge19() {
 		blocks := createBlocks(page, 16)
 
 		// first block of every page
-		block := blocks[0]
+		firstBlock := blocks[0]
 		// append the bytes of each first block to a large byte array
-		firstBlocks = append(firstBlocks, block...)
+		firstBlocks = append(firstBlocks, firstBlock...)
+
+		secondBlock := blocks[1]
+		secondBlocks = append(secondBlocks, secondBlock...)
+
+		if len(blocks) > 2 {
+			thirdBlock := blocks[2]
+			thirdBlocks = append(thirdBlocks, thirdBlock...)
+		}
+	}
+	fmt.Println(thirdBlocks)
+
+	xorBlockOne := BreakCTRKeystream(firstBlocks)
+	xorBlockOneBlocks := createBlocks(xorBlockOne, 16)
+
+	xorBlockTwo := BreakCTRKeystream(secondBlocks)
+	xorBlockTwoBlocks := createBlocks(xorBlockTwo, 16)
+
+	xorBlockThree := BreakCTRKeystream(thirdBlocks)
+	xorBlockThreeBlocks := createBlocks(xorBlockThree, 16)
+
+	plainText := ""
+
+	threeBlockIdx := 0
+
+	for idx, page := range cipherBook {
+		txtOne := xorBlockOneBlocks[idx]
+		txtTwo := xorBlockTwoBlocks[idx]
+		plainText += string(txtOne)
+		plainText += string(txtTwo)
+
+		if len(page) > 32 {
+			txtThree := xorBlockThreeBlocks[threeBlockIdx]
+			plainText += string(txtThree)
+			threeBlockIdx++
+		}
+
+		plainText += "\n"
 	}
 
-	// create the transposed blocks for later scanning the XOR key
-	// slice out all bytes from a particular key position
-	transposedBlocks := createTransposeBlocks(firstBlocks, 16)
-
-	// iterate over t-blocks and look for XOR keys
-	// this should give us the key of the first counter block of the keystream
-	keystream := scanKeys(transposedBlocks)
-
-	srcString := hex.EncodeToString(firstBlocks)
-	hexKeyBytes := hex.EncodeToString(keystream)
-
-	// XOR the bytes from the firstBlocks array to get the plain text
-	xorString, err := xorByKey(srcString, hexKeyBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	xorBytes, _ := hex.DecodeString(xorString)
-	xorResult := string(xorBytes)
-
-	fmt.Println(xorResult)
-
-	// IDEA #2
-	// automate the iteration of cipher block pages from first block to last block.
-	// scan for keys as above, and decrypt the pages
-
-	// IDEA #3
-	// break the ECB encryption of the encrypted keystream bytes for the Nth block in a page
+	fmt.Println(plainText)
 }
 
 ////////////// -----------------------------------------------------
@@ -356,6 +368,32 @@ func challenge19() {
 
 //////////////------------------------------------------------------
 
+func BreakCTRKeystream(blocks []byte) []byte {
+	// create the transposed blocks for later scanning the XOR key
+	// slice out all bytes from a particular key position
+	transposedBlocks := createTransposeBlocks(blocks, 16)
+
+	// iterate over t-blocks and look for XOR keys
+	// this should give us the key of the first counter block of the keystream
+	keystream := scanKeys(transposedBlocks)
+
+	srcString := hex.EncodeToString(blocks)
+	hexKeyBytes := hex.EncodeToString(keystream)
+
+	// XOR the bytes from the firstBlocks array to get the plain text
+	xorString, err := xorByKey(srcString, hexKeyBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	xorBytes, _ := hex.DecodeString(xorString)
+	// xorResult := string(xorBytes)
+
+	// fmt.Println(xorResult)
+
+	return xorBytes
+}
+
 func GetCipherBook(key []byte, nonce string) (cipherBook [][]byte) {
 	resource := "./resources/challenge19.txt"
 
@@ -363,6 +401,7 @@ func GetCipherBook(key []byte, nonce string) (cipherBook [][]byte) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	lines := strings.Split(string(content), "\n")
 
 	cipherBook = make([][]byte, 40)
@@ -382,6 +421,7 @@ func GetCipherBook(key []byte, nonce string) (cipherBook [][]byte) {
 
 		// cast to string
 		decodedString := string(decodedBytes)
+		fmt.Println(decodedString)
 
 		// encrypt with CTR
 		cipherText := EncryptCTR(decodedString, key, nonce)
@@ -1065,7 +1105,7 @@ func scanKeys(transposedBlocks [][]byte) []byte {
 		hexString := hex.EncodeToString(blockBytes)
 
 		_, _, cypherKey := rotateASCIIChars(hexString)
-		fmt.Println("+++ cypherKey: ", cypherKey)
+		// fmt.Println("+++ cypherKey: ", cypherKey)
 
 		// cypherByte, _ := hex.DecodeString(cypherKey)
 		// fmt.Println(">>> cypherByte: ", cypherByte)
@@ -1084,7 +1124,7 @@ func rotateASCIIChars(srcString string) (highestScore float32, cypherResult stri
 	// iterate through visible ASCII char values
 	for i := 0; i < 256; i++ {
 		// convert the ASCII char int value into a byte array
-		cypherTxt := []byte(string(i))
+		// cypherTxt := []byte(string(i))
 
 		// convert the byte-array into hex-based string value
 		// cypherString := hex.EncodeToString(cypherTxt)
@@ -1104,10 +1144,10 @@ func rotateASCIIChars(srcString string) (highestScore float32, cypherResult stri
 			cypherResult = result
 			cypherKey = byte(i)
 			// cypherKey = cypherString
-			fmt.Println("iii ", i)
-			fmt.Println("src ", srcString)
-			fmt.Println("--- ", cypherTxt)
-			fmt.Println("________________")
+			// fmt.Println("iii ", i)
+			// fmt.Println("src ", srcString)
+			// fmt.Println("--- ", cypherTxt)
+			// fmt.Println("________________")
 		}
 	}
 
