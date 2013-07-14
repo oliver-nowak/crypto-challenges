@@ -30,7 +30,8 @@ func main() {
 
 	// challenge17()
 	// challenge18()
-	challenge19()
+	// challenge19()
+	challenge20()
 }
 
 func challenge17() {
@@ -267,8 +268,9 @@ func challenge19() {
 
 	key := []byte("YELLOW SUBMARINE")
 	nonce := "\x00\x00\x00\x00\x00\x00\x00\x00"
+	resource := "./resources/challenge19.txt"
 
-	cipherBook := GetCipherBook(key, nonce)
+	cipherBook := GetCipherBook(resource, key, nonce)
 
 	var firstBlocks []byte
 	var secondBlocks []byte
@@ -295,7 +297,6 @@ func challenge19() {
 			thirdBlocks = append(thirdBlocks, thirdBlock...)
 		}
 	}
-	fmt.Println(thirdBlocks)
 
 	xorBlockOne := BreakCTRKeystream(firstBlocks)
 	xorBlockOneBlocks := createBlocks(xorBlockOne, 16)
@@ -325,6 +326,112 @@ func challenge19() {
 		plainText += "\n"
 	}
 
+	fmt.Println("---------- Decrypted Text ----------")
+	fmt.Println(plainText)
+}
+
+func challenge20() {
+	// ------------------------------------------------------------
+
+	// 20. Break fixed-nonce CTR mode using stream cipher analysis
+
+	// At the following URL:
+
+	//    https://gist.github.com/3336141
+
+	// Find a similar set of Base64'd plaintext. Do with them exactly
+	// what you did with the first, but solve the problem differently.
+
+	// Instead of making spot guesses at to known plaintext, treat the
+	// collection of ciphertexts the same way you would repeating-key
+	// XOR.
+
+	// Obviously, CTR encryption appears different from repeated-key XOR,
+	// but with a fixed nonce they are effectively the same thing.
+
+	// To exploit this: take your collection of ciphertexts and truncate
+	// them to a common length (the length of the smallest ciphertext will
+	// work).
+
+	// Solve the resulting concatenation of ciphertexts as if for repeating-
+	// key XOR, with a key size of the length of the ciphertext you XOR'd.
+
+	// ------------------------------------------------------------
+
+	fmt.Println("Challenge 20")
+
+	key := []byte("YELLOW SUBMARINE")
+	nonce := "\x00\x00\x00\x00\x00\x00\x00\x00"
+	resource := "./resources/gistfile1.txt"
+
+	cipherBook := GetCipherBook(resource, key, nonce)
+
+	// calculate shortest block length per page in the cipherbook
+	shortestLengthBlock := 1024
+	for _, page := range cipherBook {
+		pageLength := len(page)
+		if pageLength <= shortestLengthBlock && pageLength > 0 {
+			shortestLengthBlock = pageLength
+		}
+	}
+
+	// calculate the minimum number of blocks to use for breaking the CTR scheme
+	// the more blocks, the higher the 'resolution' of the decrypted data
+	minNumBlocks := shortestLengthBlock / 16
+
+	// create the storage for blocks; one 'block' per 16 byte column
+	cipherBlocks := make([][]byte, minNumBlocks)
+	for i := range cipherBlocks {
+		cipherBlocks[i] = make([]byte, len(cipherBook))
+	}
+
+	// iterate through the cipher book and slicing a column 'block' of data
+	// and storing them in their respective cipherblock array
+	for _, page := range cipherBook {
+		blocks := createBlocks(page, 16)
+
+		cipherBlocks[0] = append(cipherBlocks[0], blocks[0]...)
+		cipherBlocks[1] = append(cipherBlocks[1], blocks[1]...)
+		cipherBlocks[2] = append(cipherBlocks[2], blocks[2]...)
+	}
+
+	// each cipherblock corresponds to a column of 16bytes within each 'page'
+	// break the CTR keystream for a block using the repeating-key XOR scheme.
+	// since the nonce is not fixed, for each 'encryption' action the first 16 bytes are XOR'd with the same keystream
+	// each successive 16 byte block is also XOR'd with the respective generated nonce-counter keystream
+	// this is how we break the block CTR keystream
+	// three blocks is the shortest length common to all 'cipher pages'; we could add more blocks and possibly increase the
+	// resolution of the decrypted data
+	xorBlockOne := BreakCTRKeystream(cipherBlocks[0])
+	xorBlockOneBlocks := createBlocks(xorBlockOne, 16)
+
+	xorBlockTwo := BreakCTRKeystream(cipherBlocks[1])
+	xorBlockTwoBlocks := createBlocks(xorBlockTwo, 16)
+
+	xorBlockThree := BreakCTRKeystream(cipherBlocks[2])
+	xorBlockThreeBlocks := createBlocks(xorBlockThree, 16)
+
+	plainText := ""
+
+	// iterate through each 'page' in the cypher book (really, each page is a line of cipher text) and put the
+	// decrypted blocks back.
+	// since we have only decrypted the first 3 blocks, the 'resolution' of the decrypted data wont be high.
+	// also, the repeating key XOR scheme may also cause some of the decrypted text to be corrupt;
+	// also decreasing decryption resolution.
+	for i := 0; i < len(cipherBook); i++ {
+		txtOne := xorBlockOneBlocks[i]
+		plainText += string(txtOne)
+
+		txtTwo := xorBlockTwoBlocks[i]
+		plainText += string(txtTwo)
+
+		txtThree := xorBlockThreeBlocks[i]
+		plainText += string(txtThree)
+
+		plainText += "\n"
+	}
+
+	fmt.Println("---------- Decrypted Text ----------")
 	fmt.Println(plainText)
 }
 
@@ -394,8 +501,9 @@ func BreakCTRKeystream(blocks []byte) []byte {
 	return xorBytes
 }
 
-func GetCipherBook(key []byte, nonce string) (cipherBook [][]byte) {
-	resource := "./resources/challenge19.txt"
+func GetCipherBook(resource string, key []byte, nonce string) (cipherBook [][]byte) {
+	// resource := "./resources/challenge19.txt"
+	// resource := path
 
 	content, err := ioutil.ReadFile(resource)
 	if err != nil {
@@ -404,7 +512,7 @@ func GetCipherBook(key []byte, nonce string) (cipherBook [][]byte) {
 
 	lines := strings.Split(string(content), "\n")
 
-	cipherBook = make([][]byte, 40)
+	cipherBook = make([][]byte, len(lines))
 
 	for idx, line := range lines {
 		// allocate memory at least as large as source size in bytes
