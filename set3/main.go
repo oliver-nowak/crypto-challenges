@@ -21,6 +21,8 @@ import (
 var (
 	randomKey []byte
 	pad       byte = 0x01
+	MT             = make([]int, 624)
+	indexMT   int  = 0
 )
 
 func main() {
@@ -31,7 +33,8 @@ func main() {
 	// challenge17()
 	// challenge18()
 	// challenge19()
-	challenge20()
+	// challenge20()
+	challenge21()
 }
 
 func challenge17() {
@@ -435,6 +438,34 @@ func challenge20() {
 	fmt.Println(plainText)
 }
 
+func challenge21() {
+	// ------------------------------------------------------------
+
+	// 21. Implement the MT19937 Mersenne Twister RNG
+
+	// You can get the psuedocode for this from Wikipedia. If you're writing
+	// in Python, Ruby, or (gah) PHP, your language is probably already
+	// giving you MT19937 as "rand()"; don't use rand(). Write the RNG
+	// yourself.
+
+	// ------------------------------------------------------------
+	fmt.Println("Challenge 21")
+
+	initializeMTGenerator(0)
+
+	y := extractMTNumber()
+	fmt.Println("MT number (seed=0): ", y)
+
+	initializeMTGenerator(1)
+
+	y = extractMTNumber()
+	fmt.Println("MT number (seed=1): ", y)
+
+	initializeMTGenerator(0)
+	y = extractMTNumber()
+	fmt.Println("MT number (seed=0): ", y)
+}
+
 ////////////// -----------------------------------------------------
 
 //////////////------------------------------------------------------
@@ -474,6 +505,42 @@ func challenge20() {
 //////////////------------------------------------------------------
 
 //////////////------------------------------------------------------
+
+func initializeMTGenerator(seed int) {
+	indexMT = 0
+	MT[0] = seed
+
+	for i := 1; i < 624; i++ {
+		MT[i] = (1812433253*(MT[i-1]^(MT[i-1]>>30)) + i) & 0xFFFFFFFF
+	}
+}
+
+func generateMTNumbers() {
+	for i := 0; i < 624; i++ {
+		var y int = (MT[i] & 0x80000000) + (MT[(i+1)%624] & 0x7fffffff)
+		MT[i] = MT[(i+397)%624] ^ (y >> 1)
+		if (y % 2) != 0 {
+			MT[i] = MT[i] ^ (2567483615)
+		}
+	}
+}
+
+func extractMTNumber() int {
+	if indexMT == 0 {
+		generateMTNumbers()
+	}
+
+	y := MT[indexMT]
+
+	y = y ^ (y >> 11)
+	y = y ^ (y<<7)&2636928640
+	y = y ^ (y<<15)&4022730752
+	y = y ^ (y >> 18)
+
+	indexMT = (indexMT + 1) % 624
+
+	return y
+}
 
 func BreakCTRKeystream(blocks []byte) []byte {
 	// create the transposed blocks for later scanning the XOR key
