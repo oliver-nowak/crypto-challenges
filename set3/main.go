@@ -30,11 +30,11 @@ func main() {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 
-	// challenge17()
-	// challenge18()
-	// challenge19()
-	// challenge20()
-	// challenge21()
+	challenge17()
+	challenge18()
+	challenge19()
+	challenge20()
+	challenge21()
 	challenge22()
 }
 
