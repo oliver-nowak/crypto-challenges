@@ -918,12 +918,16 @@ func EncryptECB(input []byte, key []byte, blockSize int, withNullPad bool) (outp
 	output = make([]byte, len(input))
 
 	// initialize new AES ECB cipher
-	block, _ := aes.NewCipher(key)
+	block, err := aes.NewCipher(key)
+
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	// iterate over byte arrays and encrypt
 	for i := 0; i < numBlocks; i++ {
 		begin := i * blockSize
-		end := (begin + blockSize) - 1
+		end := (begin + blockSize)
 		block.Encrypt(output[begin:end], input[begin:end])
 	}
 
@@ -989,7 +993,7 @@ func DecryptECB(input []byte, key []byte, blockSize int) (output []byte) {
 	// iterate over byte arrays and encrypt
 	for i := 0; i < numBlocks; i++ {
 		begin := i * blockSize
-		end := (begin + blockSize) - 1
+		end := (begin + blockSize)
 		block.Decrypt(output[begin:end], input[begin:end])
 	}
 
