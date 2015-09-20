@@ -8,6 +8,7 @@ import (
 	hex "encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	ioutil "io/ioutil"
 	"log"
 	"os"
@@ -62,12 +63,7 @@ func challenge01() {
 
 	stringToDecode := string("49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d")
 
-	// stringToDecode := string("0b3637272a2b2e63622c2e69692a23693a2a3c6324202d623d63343c2a26226324272765272a282b2f20430a652e2c652a3124333a653e2b2027630c692b20283165286326302e27282f")
-
-	convertedData, err := convertStringHexToBase64(stringToDecode)
-	if err != nil {
-		log.Fatal(err)
-	}
+	convertedData := toBase64(stringToDecode)
 
 	fmt.Println(convertedData)
 }
@@ -98,7 +94,7 @@ func challenge02() {
 	alphaString := string("1c0111001f010100061a024b53535009181c")
 	betaString := string("686974207468652062756c6c277320657965")
 
-	result, err := xorHexStrings(alphaString, betaString)
+	result, err := xor(alphaString, betaString)
 
 	if err != nil {
 		log.Fatal(err)
@@ -133,7 +129,7 @@ func challenge03() {
 
 	srcString := string("1b37373331363f78151b7f2b783431333d78397828372d363c78373e783a393b3736")
 
-	highestScore, cypherResult, cypherKey := rotateASCIIChars(srcString)
+	cypherResult, cypherKey, highestScore := breakSingleCharXOR(srcString)
 
 	fmt.Println("Score:  ", highestScore)
 	fmt.Println("Result: ", cypherResult)
@@ -164,26 +160,7 @@ func challenge04() {
 	}
 	defer file.Close()
 
-	r := bufio.NewReader(file)
-	s, _, e := r.ReadLine()
-
-	var topScore float32 = 0.0000
-	topCypherResult := ""
-	topKey := ""
-
-	for e == nil {
-		line := string(s)
-
-		highestScore, cypherResult, cypherKey := rotateASCIIChars(line)
-
-		if highestScore > float32(topScore) {
-			topScore = highestScore
-			topCypherResult = cypherResult
-			topKey = cypherKey
-		}
-
-		s, _, e = r.ReadLine()
-	}
+	topCypherResult, topKey, topScore := detectSingleCharXOR(file)
 
 	fmt.Println("Top Score:  ", topScore)
 	fmt.Println("Top Result: ", topCypherResult)
@@ -215,7 +192,8 @@ func challenge05() {
 	cypherKey := "ICE"
 	cypherKeyBytes := hex.EncodeToString([]byte(cypherKey))
 
-	xorString, err := xorByKey(srcStringBytes, cypherKeyBytes)
+	xorString, err := xorWithKey(srcStringBytes, cypherKeyBytes)
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -242,37 +220,7 @@ func challenge06() {
 	// get byte-array holding decoded data from file
 	decodedBytes := decodeFile(resource)
 
-	// get top key sizes, along with their h-distance
-	distanceMap := scanKeySizes(decodedBytes, 2, 40, 20)
-
-	// set a really high threshold - this is an arbritrary value
-	keySize := 10000
-	var topScore float32 = 100000.0000
-	for k, v := range distanceMap {
-		if v < topScore {
-			topScore = v
-			keySize = k
-		}
-	}
-
-	// slice out all bytes from a particular key position
-	transposedBlocks := createTransposeBlocks(decodedBytes, keySize)
-
-	// iterate over t-blocks and look for XOR keys
-	key := scanKeys(transposedBlocks)
-
-	srcString := hex.EncodeToString(decodedBytes)
-
-	//---------------------------USING SCANNED KEY TO DECRYPT----------------------
-
-	hexKeyBytes := hex.EncodeToString(key)
-	xorString, err := xorByKey(srcString, hexKeyBytes)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	xorBytes, _ := hex.DecodeString(xorString)
-	xorResult := string(xorBytes)
+	xorResult := breakXORWithKey(decodedBytes)
 
 	fmt.Println(xorResult)
 }
@@ -305,25 +253,9 @@ func challenge07() {
 
 	// open file handle and read contents
 	decodedBytes := decodeFile(resource)
-	blockSize := 16
 
-	// calculate number of blocks to decrypt
-	numBlocks := len(decodedBytes) / blockSize
+	plainText := decryptAES_ECB(decodedBytes, "YELLOW SUBMARINE")
 
-	dst := make([]byte, len(decodedBytes))
-
-	block, err := aes.NewCipher([]byte("YELLOW SUBMARINE"))
-
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	for i := 0; i < numBlocks; i++ {
-		begin := i * blockSize
-		end := (begin + blockSize)
-		block.Decrypt(dst[begin:end], decodedBytes[begin:end])
-	}
-	plainText := string(dst)
 	fmt.Println(plainText)
 }
 
@@ -350,6 +282,109 @@ func challenge08() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	detectAES_ECB(f)
+}
+
+////////////// -----------------------------------------------------
+
+//////////////------------------------------------------------------
+
+//////////////------------------------------------------------------
+
+//////////////------------------------------------------------------
+
+func toBase64(hexString string) (convertedData string) {
+	convertedData, err := convertStringHexToBase64(hexString)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return convertedData
+}
+
+func xor(a string, b string) (result string, err error) {
+	result, err = xorHexStrings(a, b)
+
+	return result, err
+}
+
+func xorWithKey(src, key string) (cipher string, err error) {
+	cipher, err = xorByKey(src, key)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return cipher, err
+}
+
+func breakSingleCharXOR(src string) (message, key string, score float32) {
+	highestScore, cypherResult, cypherKey := rotateASCIIChars(src)
+
+	return cypherResult, cypherKey, highestScore
+}
+
+func breakXORWithKey(src []byte) (message string) {
+	// get top key sizes, along with their h-distance
+	distanceMap := scanKeySizes(src, 2, 40, 20)
+
+	// set a really high threshold - this is an arbritrary value
+	keySize := 10000
+	var topScore float32 = 100000.0000
+	for k, v := range distanceMap {
+		if v < topScore {
+			topScore = v
+			keySize = k
+		}
+	}
+
+	// slice out all bytes from a particular key position
+	transposedBlocks := createTransposeBlocks(src, keySize)
+
+	// iterate over t-blocks and look for XOR keys
+	key := scanKeys(transposedBlocks)
+
+	srcString := hex.EncodeToString(src)
+
+	//---------------------------USING SCANNED KEY TO DECRYPT----------------------
+
+	hexKeyBytes := hex.EncodeToString(key)
+	xorString, err := xorByKey(srcString, hexKeyBytes)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	xorBytes, _ := hex.DecodeString(xorString)
+	message = string(xorBytes)
+
+	return message
+}
+
+func decryptAES_ECB(src []byte, key string) (message string) {
+	blockSize := 16
+
+	// calculate number of blocks to decrypt
+	numBlocks := len(src) / blockSize
+
+	dst := make([]byte, len(src))
+
+	block, err := aes.NewCipher([]byte(key))
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for i := 0; i < numBlocks; i++ {
+		begin := i * blockSize
+		end := (begin + blockSize)
+		block.Decrypt(dst[begin:end], src[begin:end])
+	}
+	message = string(dst)
+
+	return message
+}
+
+func detectAES_ECB(f io.Reader) {
 	r := bufio.NewReader(f)
 
 	// create hashmap that will reference ALL lines that are AES-128 ECB encrypted
@@ -396,13 +431,33 @@ func challenge08() {
 	}
 }
 
-////////////// -----------------------------------------------------
+func detectSingleCharXOR(file io.Reader) (topCypherResult, topKey string, topScore float32) {
+	r := bufio.NewReader(file)
+	s, _, e := r.ReadLine()
 
-//////////////------------------------------------------------------
+	topScore = 0.0000
+	topCypherResult = ""
+	topKey = ""
 
-//////////////------------------------------------------------------
+	for e == nil {
+		line := string(s)
 
-//////////////------------------------------------------------------
+		// topCypherResult, topKey, topScore = detectSingleCharXOR(line)
+
+		// highestScore, cypherResult, cypherKey := rotateASCIIChars(line)
+		cypherResult, cypherKey, highestScore := breakSingleCharXOR(line)
+
+		if highestScore > float32(topScore) {
+			topScore = highestScore
+			topCypherResult = cypherResult
+			topKey = cypherKey
+		}
+
+		s, _, e = r.ReadLine()
+	}
+
+	return topCypherResult, topKey, topScore
+}
 
 //////////////------------------------------------------------------
 

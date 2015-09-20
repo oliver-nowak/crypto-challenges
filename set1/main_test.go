@@ -12,14 +12,16 @@ func Test_ConvertStringHexToBase64_1(t *testing.T) {
 	hexString := string("49276d206b696c6c696e6720796f757220627261696e206c696b65206120706f69736f6e6f7573206d757368726f6f6d")
 	expectedEncoding := string("SSdtIGtpbGxpbmcgeW91ciBicmFpbiBsaWtlIGEgcG9pc29ub3VzIG11c2hyb29t")
 
-	result, err := convertStringHexToBase64(hexString)
+	// result, err := convertStringHexToBase64(hexString)
 
-	if err != nil {
-		t.Error(err)
-	}
+	// if err != nil {
+	// 	t.Error(err)
+	// }
+
+	result := toBase64(hexString)
 
 	if result != expectedEncoding {
-		t.Error("Result is not equal to expected value", err)
+		t.Error("Result is not equal to expected value", result)
 	}
 }
 
@@ -30,14 +32,16 @@ func Test_XorHexStrings_1(t *testing.T) {
 	betaString := string("686974207468652062756c6c277320657965")
 	expectedResult := string("746865206b696420646f6e277420706c6179")
 
-	result, err := xorHexStrings(alphaString, betaString)
+	// result, err := xorHexStrings(alphaString, betaString)
+
+	result, err := xor(alphaString, betaString)
 
 	if err != nil {
 		t.Error(err)
 	}
 
 	if result != expectedResult {
-		t.Error("Result is not equal to expected value.", err)
+		t.Error("Result is not equal to expected value.", result)
 	}
 }
 
@@ -47,7 +51,9 @@ func Test_XorHexStrings_2(t *testing.T) {
 	alphaString := string("1c0111001f010100061a024b53535009181c")
 	betaString := string("6")
 
-	result, err := xorHexStrings(alphaString, betaString)
+	// result, err := xorHexStrings(alphaString, betaString)
+
+	result, err := xor(alphaString, betaString)
 
 	if err == nil {
 		t.Error("Expected error.")
@@ -98,7 +104,8 @@ func Test_RotatateASCIIChars_1(t *testing.T) {
 	expectedCypherResult := "Cooking MC's like a pound of bacon"
 	expectedCypherKey := "58"
 
-	highestScore, cypherResult, cypherKey := rotateASCIIChars(srcString)
+	// highestScore, cypherResult, cypherKey := rotateASCIIChars(srcString)
+	cypherResult, cypherKey, highestScore := breakSingleCharXOR(srcString)
 
 	if int(highestScore) != expectedScore {
 		t.Error("HighestScore was not equal to expected value.", highestScore)
@@ -125,7 +132,8 @@ func Test_XORByKey_1(t *testing.T) {
 	keyBytes := hex.EncodeToString([]byte(cypherKey))
 
 	// XOR by repeating key
-	result, err := xorByKey(srcBytes, keyBytes)
+	// result, err := xorByKey(srcBytes, keyBytes)
+	result, err := xorWithKey(srcBytes, keyBytes)
 
 	if err != nil {
 		t.Error(err)
@@ -136,7 +144,8 @@ func Test_XORByKey_1(t *testing.T) {
 	}
 
 	// Decrypt result back into source string via the key
-	result, err = xorByKey(expectedResult, keyBytes)
+	// result, err = xorByKey(expectedResult, keyBytes)
+	result, err = xorWithKey(expectedResult, keyBytes)
 
 	// Decode hex-string into a byte-array
 	resultBytes, _ := hex.DecodeString(result)
@@ -269,7 +278,8 @@ func Test_DecodeFileAndXOR_1(t *testing.T) {
 	srcString := hex.EncodeToString(decodedBytes)
 	keyBytes := hex.EncodeToString([]byte(cypherKey))
 
-	result, err := xorByKey(srcString, keyBytes)
+	// result, err := xorByKey(srcString, keyBytes)
+	result, err := xorWithKey(srcString, keyBytes)
 
 	if err != nil {
 		t.Error(err)
