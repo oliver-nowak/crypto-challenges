@@ -312,11 +312,15 @@ func challenge07() {
 
 	dst := make([]byte, len(decodedBytes))
 
-	block, _ := aes.NewCipher([]byte("YELLOW SUBMARINE"))
+	block, err := aes.NewCipher([]byte("YELLOW SUBMARINE"))
+
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	for i := 0; i < numBlocks; i++ {
 		begin := i * blockSize
-		end := (begin + blockSize) - 1
+		end := (begin + blockSize)
 		block.Decrypt(dst[begin:end], decodedBytes[begin:end])
 	}
 	plainText := string(dst)
